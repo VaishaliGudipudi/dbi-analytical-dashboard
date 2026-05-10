@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRegisterRouteImport } from './routes/_app/register'
 import { Route as AppRapidRouteImport } from './routes/_app/rapid'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppPatientIdWorkspaceRouteImport } from './routes/_app/patient.$id.workspace'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -39,18 +40,25 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPatientIdWorkspaceRoute = AppPatientIdWorkspaceRouteImport.update({
+  id: '/patient/$id/workspace',
+  path: '/patient/$id/workspace',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AppDashboardRoute
   '/rapid': typeof AppRapidRoute
   '/register': typeof AppRegisterRoute
+  '/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AppDashboardRoute
   '/rapid': typeof AppRapidRoute
   '/register': typeof AppRegisterRoute
+  '/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -59,12 +67,18 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/rapid': typeof AppRapidRoute
   '/_app/register': typeof AppRegisterRoute
+  '/_app/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/rapid' | '/register'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/rapid'
+    | '/register'
+    | '/patient/$id/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/rapid' | '/register'
+  to: '/' | '/dashboard' | '/rapid' | '/register' | '/patient/$id/workspace'
   id:
     | '__root__'
     | '/'
@@ -72,6 +86,7 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/rapid'
     | '/_app/register'
+    | '/_app/patient/$id/workspace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -116,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/patient/$id/workspace': {
+      id: '/_app/patient/$id/workspace'
+      path: '/patient/$id/workspace'
+      fullPath: '/patient/$id/workspace'
+      preLoaderRoute: typeof AppPatientIdWorkspaceRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -123,12 +145,14 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppRapidRoute: typeof AppRapidRoute
   AppRegisterRoute: typeof AppRegisterRoute
+  AppPatientIdWorkspaceRoute: typeof AppPatientIdWorkspaceRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppRapidRoute: AppRapidRoute,
   AppRegisterRoute: AppRegisterRoute,
+  AppPatientIdWorkspaceRoute: AppPatientIdWorkspaceRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
