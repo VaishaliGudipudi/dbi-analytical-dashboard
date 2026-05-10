@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, RotateCcw } from "lucide-react";
 import { DiagnosisGrid } from "@/components/app/DiagnosisGrid";
 import { diagnoses, triageMeta } from "@/lib/mockData";
 
@@ -11,9 +11,18 @@ function Rapid() {
   const [unknown, setUnknown] = useState(false);
   const [sex, setSex] = useState<"M" | "F" | "Other">("M");
   const [diag, setDiag] = useState<string>();
+  const [sevOverride, setSevOverride] = useState<1 | 2 | 3 | null>(null);
+  const [pathwayOverride, setPathwayOverride] = useState<string | null>(null);
 
   const dx = diagnoses.find(d => d.id === diag);
-  const sev = dx?.severity ?? 1;
+  const autoSev = (dx?.severity ?? 1) as 1 | 2 | 3;
+  const sev: 1 | 2 | 3 = sevOverride ?? autoSev;
+  const sevIsOverride = sevOverride !== null && sevOverride !== autoSev;
+
+  const autoPathway = dx?.pathway ?? "";
+  const pathway = pathwayOverride ?? autoPathway;
+  const pathwayIsOverride = pathwayOverride !== null && pathwayOverride !== autoPathway;
+  const pathwayOptions = Array.from(new Set(diagnoses.map(d => d.pathway)));
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -64,21 +73,54 @@ function Rapid() {
 
         {/* Severity */}
         <div>
-          <SectionLabel>3. Severity (auto-suggested)</SectionLabel>
-          <div className="inline-flex items-center gap-2 rounded-xl px-4 py-3 text-white shadow-soft text-sm font-semibold"
-            style={{ background: triageMeta[sev as 1|2|3].color }}>
-            Level {sev === 1 ? "I" : sev === 2 ? "II" : "III"} — {triageMeta[sev as 1|2|3].label} (auto)
+          <SectionLabel>3. Severity {sevIsOverride ? "(manual override)" : "(auto-suggested)"}</SectionLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            {([1, 2, 3] as const).map(lvl => {
+              const active = sev === lvl;
+              const isAuto = lvl === autoSev;
+              return (
+                <button key={lvl} type="button" onClick={() => setSevOverride(lvl === autoSev ? null : lvl)}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-semibold shadow-soft transition-all ${active ? "text-white -translate-y-0.5" : "bg-secondary/60 text-navy hover:bg-secondary"}`}
+                  style={active ? { background: triageMeta[lvl].color } : undefined}>
+                  Level {lvl === 1 ? "I" : lvl === 2 ? "II" : "III"} — {triageMeta[lvl].label}
+                  <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${active ? "bg-white/20" : "bg-white/60"}`}>
+                    {isAuto ? "AUTO" : active ? "OVERRIDE" : ""}
+                  </span>
+                </button>
+              );
+            })}
+            {sevIsOverride && (
+              <button type="button" onClick={() => setSevOverride(null)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-coral">
+                <RotateCcw className="h-3 w-3" /> Reset to auto
+              </button>
+            )}
           </div>
         </div>
 
         {/* Pathway */}
         {dx && (
           <div>
-            <SectionLabel>4. Care Pathway</SectionLabel>
-            <div className="rounded-xl border border-border p-4 bg-mint/40">
-              <div className="font-semibold text-navy text-sm">{dx.pathway}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Auto-selected based on {dx.label}</div>
-              <button className="text-xs font-semibold text-coral mt-2">Change pathway →</button>
+            <SectionLabel>4. Care Pathway {pathwayIsOverride ? "(manual override)" : "(auto-selected)"}</SectionLabel>
+            <div className="rounded-xl border border-border p-4 bg-mint/40 space-y-2">
+              <select value={pathway}
+                onChange={(e) => setPathwayOverride(e.target.value === autoPathway ? null : e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-coral">
+                {pathwayOptions.map(p => (
+                  <option key={p} value={p}>{p}{p === autoPathway ? "  (auto)" : ""}</option>
+                ))}
+              </select>
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                  {pathwayIsOverride ? `Auto suggestion was "${autoPathway}" based on ${dx.label}` : `Auto-selected based on ${dx.label}`}
+                </div>
+                {pathwayIsOverride && (
+                  <button type="button" onClick={() => setPathwayOverride(null)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-coral">
+                    <RotateCcw className="h-3 w-3" /> Reset to auto
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

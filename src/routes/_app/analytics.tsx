@@ -136,6 +136,30 @@ function DoctorView() {
         <RankList title="Top 15 Medications Prescribed" Icon={Pill} items={topMeds as any} />
         <RankList title="Top 15 Investigations Ordered" Icon={FlaskConical} items={topInvestigations as any} />
       </div>
+
+      {/* Capacity awareness — doctors need this for admit/discharge calls */}
+      <Group title="Bed & Capacity Awareness">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <Kpi label="Bed Occupancy Rate" value="87%" delta="+4% vs yesterday" Icon={Bed} tone="amber" />
+          <Kpi label="Patients per Doctor" value="14.2" delta="Shift avg" Icon={UserCheck} tone="navy" />
+          <Kpi label="ER TAT" value="2h 18m" delta="-12 min vs week" Icon={Clock} tone="green" />
+          <Kpi label="Footfall Today" value="125" delta="+12 vs yesterday" Icon={TrendingUp} tone="coral" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <WardUtilization />
+          <ChartCard title="Footfall Trend (last 14 days)">
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={footfall}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="d" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="patients" stroke="var(--navy)" strokeWidth={3} dot={{ fill: "var(--coral)", r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+      </Group>
     </div>
   );
 }
@@ -189,6 +213,30 @@ function NurseView() {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      {/* Capacity context — nurses triage and bed-place */}
+      <Group title="Bed & Capacity Awareness">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <Kpi label="Bed Occupancy Rate" value="87%" delta="+4% vs yesterday" Icon={Bed} tone="amber" />
+          <Kpi label="Footfall Today" value="125" delta="+12 vs yesterday" Icon={TrendingUp} tone="coral" />
+          <Kpi label="Ambulance Arrivals" value="32" delta="Today" Icon={Truck} tone="navy" />
+          <Kpi label="Walk-In Arrivals" value="78" delta="Today" Icon={Users} tone="green" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <WardUtilization />
+          <ChartCard title="Triage Categories Distribution">
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={triageDist} dataKey="value" nameKey="name" innerRadius={44} outerRadius={82} paddingAngle={3}>
+                  {triageDist.map((d, i) => <Cell key={i} fill={d.color} />)}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+            <Legend items={triageDist} />
+          </ChartCard>
+        </div>
+      </Group>
     </div>
   );
 }
@@ -302,26 +350,40 @@ function AdminView() {
       </div>
 
       <ChartCard title="Ward Bed Utilization">
-        <table className="w-full text-sm">
-          <thead className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            <tr><th className="text-left pb-2">Ward</th><th className="text-right pb-2">Beds</th><th className="text-right pb-2">Util</th></tr>
-          </thead>
-          <tbody>
-            {wards.map(w => {
-              const pct = Math.round((w.occupied / w.total) * 100);
-              const tone = pct >= 90 ? "var(--urgent-critical)" : pct >= 75 ? "var(--urgent-urgent)" : "var(--urgent-safe)";
-              return (
-                <tr key={w.name} className="border-t border-border">
-                  <td className="py-2 text-navy font-medium">{w.name}</td>
-                  <td className="py-2 text-right tabular-nums text-muted-foreground">{w.occupied}/{w.total}</td>
-                  <td className="py-2 text-right"><span className="font-bold" style={{ color: tone }}>{pct}%</span></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <WardTable />
       </ChartCard>
     </div>
+  );
+}
+
+function WardTable() {
+  return (
+    <table className="w-full text-sm">
+      <thead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        <tr><th className="text-left pb-2">Ward</th><th className="text-right pb-2">Beds</th><th className="text-right pb-2">Util</th></tr>
+      </thead>
+      <tbody>
+        {wards.map(w => {
+          const pct = Math.round((w.occupied / w.total) * 100);
+          const tone = pct >= 90 ? "var(--urgent-critical)" : pct >= 75 ? "var(--urgent-urgent)" : "var(--urgent-safe)";
+          return (
+            <tr key={w.name} className="border-t border-border">
+              <td className="py-2 text-navy font-medium">{w.name}</td>
+              <td className="py-2 text-right tabular-nums text-muted-foreground">{w.occupied}/{w.total}</td>
+              <td className="py-2 text-right"><span className="font-bold" style={{ color: tone }}>{pct}%</span></td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function WardUtilization() {
+  return (
+    <ChartCard title="Ward Bed Utilization">
+      <WardTable />
+    </ChartCard>
   );
 }
 
