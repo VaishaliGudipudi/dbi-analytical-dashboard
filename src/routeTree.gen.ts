@@ -11,9 +11,16 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppStaffRouteImport } from './routes/_app/staff'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppRegisterRouteImport } from './routes/_app/register'
 import { Route as AppRapidRouteImport } from './routes/_app/rapid'
+import { Route as AppPatientsRouteImport } from './routes/_app/patients'
+import { Route as AppMedicationsRouteImport } from './routes/_app/medications'
+import { Route as AppLabsRouteImport } from './routes/_app/labs'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppPatientIdWorkspaceRouteImport } from './routes/_app/patient.$id.workspace'
 
 const AppRoute = AppRouteImport.update({
@@ -25,6 +32,21 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppStaffRoute = AppStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRegisterRoute = AppRegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -35,9 +57,29 @@ const AppRapidRoute = AppRapidRouteImport.update({
   path: '/rapid',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPatientsRoute = AppPatientsRouteImport.update({
+  id: '/patients',
+  path: '/patients',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMedicationsRoute = AppMedicationsRouteImport.update({
+  id: '/medications',
+  path: '/medications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLabsRoute = AppLabsRouteImport.update({
+  id: '/labs',
+  path: '/labs',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPatientIdWorkspaceRoute = AppPatientIdWorkspaceRouteImport.update({
@@ -48,44 +90,91 @@ const AppPatientIdWorkspaceRoute = AppPatientIdWorkspaceRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analytics': typeof AppAnalyticsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/labs': typeof AppLabsRoute
+  '/medications': typeof AppMedicationsRoute
+  '/patients': typeof AppPatientsRoute
   '/rapid': typeof AppRapidRoute
   '/register': typeof AppRegisterRoute
+  '/reports': typeof AppReportsRoute
+  '/settings': typeof AppSettingsRoute
+  '/staff': typeof AppStaffRoute
   '/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analytics': typeof AppAnalyticsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/labs': typeof AppLabsRoute
+  '/medications': typeof AppMedicationsRoute
+  '/patients': typeof AppPatientsRoute
   '/rapid': typeof AppRapidRoute
   '/register': typeof AppRegisterRoute
+  '/reports': typeof AppReportsRoute
+  '/settings': typeof AppSettingsRoute
+  '/staff': typeof AppStaffRoute
   '/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/labs': typeof AppLabsRoute
+  '/_app/medications': typeof AppMedicationsRoute
+  '/_app/patients': typeof AppPatientsRoute
   '/_app/rapid': typeof AppRapidRoute
   '/_app/register': typeof AppRegisterRoute
+  '/_app/reports': typeof AppReportsRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/staff': typeof AppStaffRoute
   '/_app/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analytics'
     | '/dashboard'
+    | '/labs'
+    | '/medications'
+    | '/patients'
     | '/rapid'
     | '/register'
+    | '/reports'
+    | '/settings'
+    | '/staff'
     | '/patient/$id/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/rapid' | '/register' | '/patient/$id/workspace'
+  to:
+    | '/'
+    | '/analytics'
+    | '/dashboard'
+    | '/labs'
+    | '/medications'
+    | '/patients'
+    | '/rapid'
+    | '/register'
+    | '/reports'
+    | '/settings'
+    | '/staff'
+    | '/patient/$id/workspace'
   id:
     | '__root__'
     | '/'
     | '/_app'
+    | '/_app/analytics'
     | '/_app/dashboard'
+    | '/_app/labs'
+    | '/_app/medications'
+    | '/_app/patients'
     | '/_app/rapid'
     | '/_app/register'
+    | '/_app/reports'
+    | '/_app/settings'
+    | '/_app/staff'
     | '/_app/patient/$id/workspace'
   fileRoutesById: FileRoutesById
 }
@@ -110,6 +199,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/staff': {
+      id: '/_app/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AppStaffRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/register': {
       id: '/_app/register'
       path: '/register'
@@ -124,11 +234,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRapidRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/patients': {
+      id: '/_app/patients'
+      path: '/patients'
+      fullPath: '/patients'
+      preLoaderRoute: typeof AppPatientsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/medications': {
+      id: '/_app/medications'
+      path: '/medications'
+      fullPath: '/medications'
+      preLoaderRoute: typeof AppMedicationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/labs': {
+      id: '/_app/labs'
+      path: '/labs'
+      fullPath: '/labs'
+      preLoaderRoute: typeof AppLabsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/analytics': {
+      id: '/_app/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AppAnalyticsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/patient/$id/workspace': {
@@ -142,16 +280,30 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppLabsRoute: typeof AppLabsRoute
+  AppMedicationsRoute: typeof AppMedicationsRoute
+  AppPatientsRoute: typeof AppPatientsRoute
   AppRapidRoute: typeof AppRapidRoute
   AppRegisterRoute: typeof AppRegisterRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppStaffRoute: typeof AppStaffRoute
   AppPatientIdWorkspaceRoute: typeof AppPatientIdWorkspaceRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAnalyticsRoute: AppAnalyticsRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppLabsRoute: AppLabsRoute,
+  AppMedicationsRoute: AppMedicationsRoute,
+  AppPatientsRoute: AppPatientsRoute,
   AppRapidRoute: AppRapidRoute,
   AppRegisterRoute: AppRegisterRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppStaffRoute: AppStaffRoute,
   AppPatientIdWorkspaceRoute: AppPatientIdWorkspaceRoute,
 }
 
