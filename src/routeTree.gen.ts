@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRegisterRouteImport } from './routes/_app/register'
+import { Route as AppRapidRouteImport } from './routes/_app/rapid'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 
 const AppRoute = AppRouteImport.update({
@@ -28,6 +29,11 @@ const AppRegisterRoute = AppRegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRapidRoute = AppRapidRouteImport.update({
+  id: '/rapid',
+  path: '/rapid',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -37,11 +43,13 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AppDashboardRoute
+  '/rapid': typeof AppRapidRoute
   '/register': typeof AppRegisterRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AppDashboardRoute
+  '/rapid': typeof AppRapidRoute
   '/register': typeof AppRegisterRoute
 }
 export interface FileRoutesById {
@@ -49,14 +57,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/rapid': typeof AppRapidRoute
   '/_app/register': typeof AppRegisterRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/register'
+  fullPaths: '/' | '/dashboard' | '/rapid' | '/register'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/register'
-  id: '__root__' | '/' | '/_app' | '/_app/dashboard' | '/_app/register'
+  to: '/' | '/dashboard' | '/rapid' | '/register'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/_app/dashboard'
+    | '/_app/rapid'
+    | '/_app/register'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -87,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRegisterRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/rapid': {
+      id: '/_app/rapid'
+      path: '/rapid'
+      fullPath: '/rapid'
+      preLoaderRoute: typeof AppRapidRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -99,11 +121,13 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
+  AppRapidRoute: typeof AppRapidRoute
   AppRegisterRoute: typeof AppRegisterRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
+  AppRapidRoute: AppRapidRoute,
   AppRegisterRoute: AppRegisterRoute,
 }
 
