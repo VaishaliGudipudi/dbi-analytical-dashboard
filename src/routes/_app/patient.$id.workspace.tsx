@@ -20,6 +20,9 @@ function Workspace() {
   const [voiceOn, setVoiceOn] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [elapsed, setElapsed] = useState(42);
+  // manual overrides
+  const [sevOverride, setSevOverride] = useState<1 | 2 | 3 | 0 | null>(null);
+  const [pathwayOverride, setPathwayOverride] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000);
@@ -44,7 +47,12 @@ function Workspace() {
   };
 
   const dx = diagnoses.find(d => d.id === diag);
-  const sev = (dx?.severity ?? patient.triage) as 1 | 2 | 3;
+  const autoSev = (dx?.severity ?? patient.triage) as 1 | 2 | 3 | 0;
+  const sev = (sevOverride ?? autoSev) as 1 | 2 | 3 | 0;
+  const autoPathway = dx?.pathway;
+  const pathway = pathwayOverride ?? autoPathway;
+  const sevOverridden = sevOverride !== null && sevOverride !== autoSev;
+  const pathwayOverridden = pathwayOverride !== null && pathwayOverride !== autoPathway;
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
@@ -63,8 +71,11 @@ function Workspace() {
               <span className="inline-flex items-center gap-2">
                 <span className="opacity-70">Triage:</span>
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-bold text-white" style={{ background: triageMeta[sev].color }}>
-                  Level {sev === 1 ? "I" : sev === 2 ? "II" : "III"}
+                  {sev === 0 ? "Pending" : `Level ${sev === 1 ? "I" : sev === 2 ? "II" : "III"}`}
                 </span>
+                {sevOverridden && (
+                  <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-coral text-coral-foreground">Override</span>
+                )}
               </span>
               <span className="opacity-60">|</span>
               <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Arrival: {fmtTime(elapsed)}</span>
@@ -141,7 +152,11 @@ function Workspace() {
           {mode === "rapid" ? (
             <RapidPanel diag={diag} setDiag={setDiag} />
           ) : (
-            <StandardPanel diag={diag} setDiag={setDiag} />
+            <StandardPanel
+              diag={diag} setDiag={setDiag}
+              sev={sev} autoSev={autoSev} setSevOverride={setSevOverride} sevOverridden={sevOverridden}
+              pathway={pathway} autoPathway={autoPathway} setPathwayOverride={setPathwayOverride} pathwayOverridden={pathwayOverridden}
+            />
           )}
 
           {/* Bottom action bar */}
@@ -193,13 +208,21 @@ function RapidPanel({ diag, setDiag }: { diag?: string; setDiag: (s: string) => 
   );
 }
 
-function StandardPanel({ diag, setDiag }: { diag?: string; setDiag: (s: string) => void }) {
+function StandardPanel({
+  diag, setDiag, sev, autoSev, setSevOverride, sevOverridden,
+  pathway, autoPathway, setPathwayOverride, pathwayOverridden,
+}: {
+  diag?: string; setDiag: (s: string) => void;
+  sev: 0 | 1 | 2 | 3; autoSev: 0 | 1 | 2 | 3; setSevOverride: (s: 0 | 1 | 2 | 3 | null) => void; sevOverridden: boolean;
+  pathway?: string; autoPathway?: string; setPathwayOverride: (s: string | null) => void; pathwayOverridden: boolean;
+}) {
   const dx = diagnoses.find(d => d.id === diag);
   const cardiacOrResp = dx?.id === "stemi" || dx?.id === "resp";
   const expandMeds = ["stemi", "poison", "anaph"].includes(dx?.id ?? "");
   const [mlc, setMlc] = useState<"yes" | "no" | null>(null);
   const [arrival, setArrival] = useState<string>();
-  const sev = (dx?.severity ?? 0) as 0 | 1 | 2 | 3;
+  const [editPathway, setEditPathway] = useState(false);
+  const allPathways = Array.from(new Set(diagnoses.map(d => d.pathway)));
 
   return (
     <div className="space-y-3">
@@ -242,20 +265,41 @@ function StandardPanel({ diag, setDiag }: { diag?: string; setDiag: (s: string) 
       </Section>
 
       <Section title="4. Triage Severity" defaultOpen={!!dx}>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-muted-foreground">
+            {dx ? "Auto-suggested from chief complaint. Tap to override." : "Tap to set severity."}
+          </p>
+          {sevOverridden && (
+            <button onClick={() => setSevOverride(null)} className="text-xs font-semibold text-coral hover:underline">
+              Reset to auto (Level {autoSev === 0 ? "—" : autoSev})
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {[1,2,3,0].map(l => {
             const m = triageMeta[l];
             const active = sev === l;
+            const isAuto = autoSev === l;
             return (
-              <button key={l}
-                className="rounded-xl px-4 py-3 text-left font-semibold text-sm shadow-soft transition-transform hover:-translate-y-0.5"
+              <button key={l} type="button"
+                onClick={() => setSevOverride(l as 0 | 1 | 2 | 3)}
+                className="relative rounded-xl px-4 py-3 text-left font-semibold text-sm shadow-soft transition-transform hover:-translate-y-0.5"
                 style={{ background: active ? m.color : "white", color: active ? "white" : "var(--navy)", border: active ? "none" : "1px solid var(--border)" }}>
                 {l === 0 ? "Not Triaged" : `Level ${l===1?"I":l===2?"II":"III"} — ${m.label}`}
+                {isAuto && (
+                  <span className={`absolute top-1.5 right-2 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${active ? "bg-white/25 text-white" : "bg-secondary text-navy"}`}>
+                    Auto
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
-        {dx && <p className="text-xs text-muted-foreground mt-2">Auto-suggested based on chief complaint. Click to confirm.</p>}
+        {sevOverridden && (
+          <div className="mt-2 text-xs text-navy bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
+            Manually overridden from auto Level {autoSev === 0 ? "—" : autoSev}.
+          </div>
+        )}
       </Section>
 
       <Section title="5. Vitals" defaultOpen={cardiacOrResp}>
@@ -290,13 +334,57 @@ function StandardPanel({ diag, setDiag }: { diag?: string; setDiag: (s: string) 
       </Section>
 
       <Section title="9. Care Pathway" defaultOpen>
-        {dx ? (
+        {pathway ? (
           <div className="rounded-xl bg-mint/40 border border-border p-4">
-            <div className="font-semibold text-navy">{dx.pathway}</div>
-            <div className="text-xs text-muted-foreground">Auto-selected based on {dx.label}</div>
-            <button className="text-xs font-semibold text-coral mt-2">Change Pathway →</button>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold text-navy">{pathway}</div>
+                  {pathwayOverridden && (
+                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-coral text-coral-foreground">Override</span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {pathwayOverridden
+                    ? `Manually overridden — auto was "${autoPathway ?? "—"}"`
+                    : dx ? `Auto-selected based on ${dx.label}` : "Default pathway"}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <button onClick={() => setEditPathway(v => !v)} className="text-xs font-semibold text-coral whitespace-nowrap">
+                  {editPathway ? "Cancel" : "Change Pathway →"}
+                </button>
+                {pathwayOverridden && (
+                  <button onClick={() => { setPathwayOverride(null); setEditPathway(false); }} className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                    Reset to auto
+                  </button>
+                )}
+              </div>
+            </div>
+            {editPathway && (
+              <div className="mt-3 pt-3 border-t border-border space-y-2">
+                <Label>Select pathway manually</Label>
+                <select
+                  value={pathway}
+                  onChange={e => { setPathwayOverride(e.target.value); setEditPathway(false); }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-coral">
+                  {allPathways.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            )}
           </div>
-        ) : <div className="text-sm text-muted-foreground">Select a chief complaint to auto-assign a care pathway.</div>}
+        ) : (
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground">No chief complaint selected — pick a pathway manually:</div>
+            <select
+              defaultValue=""
+              onChange={e => e.target.value && setPathwayOverride(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm">
+              <option value="" disabled>Select pathway…</option>
+              {allPathways.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        )}
       </Section>
 
       <Section title="10. Bed Assignment" defaultOpen>
