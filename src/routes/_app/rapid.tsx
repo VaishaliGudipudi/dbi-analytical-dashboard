@@ -3,7 +3,10 @@ import { useState } from "react";
 import { ArrowLeft, AlertTriangle, RotateCcw } from "lucide-react";
 import { DiagnosisGrid } from "@/components/app/DiagnosisGrid";
 import { diagnoses, triageMeta } from "@/lib/mockData";
+<<<<<<< HEAD
 import { FormAssistActions } from "@/components/app/FormAssistActions";
+=======
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
 export const Route = createFileRoute("/_app/rapid")({ component: Rapid });
 
@@ -14,7 +17,10 @@ function Rapid() {
   const [diag, setDiag] = useState<string>();
   const [sevOverride, setSevOverride] = useState<1 | 2 | 3 | null>(null);
   const [pathwayOverride, setPathwayOverride] = useState<string | null>(null);
+<<<<<<< HEAD
   const [vitals, setVitals] = useState({ bp: "", pulse: "", spo2: "", rr: "", temp: "", gcs: "" });
+=======
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
   const dx = diagnoses.find(d => d.id === diag);
   const autoSev = (dx?.severity ?? 1) as 1 | 2 | 3;
@@ -25,8 +31,11 @@ function Rapid() {
   const pathway = pathwayOverride ?? autoPathway;
   const pathwayIsOverride = pathwayOverride !== null && pathwayOverride !== autoPathway;
   const pathwayOptions = Array.from(new Set(diagnoses.map(d => d.pathway)));
+<<<<<<< HEAD
   const vitalsComplete = Object.values(vitals).every(Boolean);
   const canSubmit = Boolean(diag) && vitalsComplete;
+=======
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -46,6 +55,7 @@ function Rapid() {
       </div>
 
       <div className="bg-card rounded-2xl shadow-soft p-6 space-y-6">
+<<<<<<< HEAD
         <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-mint/30 p-3">
           <div>
             <div className="font-semibold text-navy text-sm">Smart emergency entry</div>
@@ -54,6 +64,8 @@ function Rapid() {
           <FormAssistActions compact />
         </div>
 
+=======
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
         {/* Identity */}
         <div>
           <SectionLabel>1. Patient Identity</SectionLabel>
@@ -65,8 +77,11 @@ function Rapid() {
             <Field label="First" disabled={unknown} placeholder={unknown ? "Unknown" : ""} />
             <Field label="Last" disabled={unknown} placeholder={unknown ? "Unknown" : ""} />
             <Field label="Age" type="number" />
+<<<<<<< HEAD
             <Field label="UMR Number" placeholder="optional" />
             <Field label="HMIS Number" placeholder="optional" />
+=======
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">Sex</label>
               <div className="flex gap-1">
@@ -81,6 +96,7 @@ function Rapid() {
 
         {/* Diagnosis */}
         <div>
+<<<<<<< HEAD
           <SectionLabel>2. Mandatory Triage Vitals</SectionLabel>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <Field label="BP" required value={vitals.bp} onChange={(v: string) => setVitals({ ...vitals, bp: v })} placeholder="120/80" />
@@ -96,12 +112,19 @@ function Rapid() {
         {/* Diagnosis */}
         <div>
           <SectionLabel>3. Select Primary Diagnosis</SectionLabel>
+=======
+          <SectionLabel>2. Select Primary Diagnosis</SectionLabel>
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <DiagnosisGrid value={diag} onChange={setDiag} />
         </div>
 
         {/* Severity */}
         <div>
+<<<<<<< HEAD
           <SectionLabel>4. Severity {sevIsOverride ? "(manual override)" : "(auto-suggested)"}</SectionLabel>
+=======
+          <SectionLabel>3. Severity {sevIsOverride ? "(manual override)" : "(auto-suggested)"}</SectionLabel>
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <div className="flex flex-wrap items-center gap-2">
             {([1, 2, 3] as const).map(lvl => {
               const active = sev === lvl;
@@ -129,7 +152,11 @@ function Rapid() {
         {/* Pathway */}
         {dx && (
           <div>
+<<<<<<< HEAD
             <SectionLabel>5. Care Pathway {pathwayIsOverride ? "(manual override)" : "(auto-selected)"}</SectionLabel>
+=======
+            <SectionLabel>4. Care Pathway {pathwayIsOverride ? "(manual override)" : "(auto-selected)"}</SectionLabel>
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             <div className="rounded-xl border border-border p-4 bg-mint/40 space-y-2">
               <select value={pathway}
                 onChange={(e) => setPathwayOverride(e.target.value === autoPathway ? null : e.target.value)}
@@ -155,7 +182,11 @@ function Rapid() {
 
         {/* Bed */}
         <div>
+<<<<<<< HEAD
           <SectionLabel>6. Bed Assignment</SectionLabel>
+=======
+          <SectionLabel>5. Bed Assignment</SectionLabel>
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <select className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm">
             <option>{dx ? `${dx.ward} Ward — Bed 4 (available)` : "Select after diagnosis"}</option>
             <option>Emergency Ward — Bed 7 (available)</option>
@@ -165,10 +196,17 @@ function Rapid() {
 
         <div>
           <button onClick={() => navigate({ to: "/patient/$id/workspace", params: { id: "p1" } })}
+<<<<<<< HEAD
             disabled={!canSubmit}
             className="w-full rounded-xl py-4 text-base font-bold text-white shadow-soft-lg disabled:opacity-50"
             style={{ background: "var(--amber-emerg)" }}>
             {canSubmit ? "ADMIT AND OPEN CARE PATHWAY" : "COMPLETE DIAGNOSIS AND MANDATORY VITALS"}
+=======
+            disabled={!diag}
+            className="w-full rounded-xl py-4 text-base font-bold text-white shadow-soft-lg disabled:opacity-50"
+            style={{ background: "var(--amber-emerg)" }}>
+            ADMIT AND OPEN CARE PATHWAY
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           </button>
           <p className="text-xs text-muted-foreground text-center mt-2">
             Vitals, medication history and full assessment will be flagged for nurse completion
@@ -183,6 +221,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div className="text-sm font-bold text-navy mb-3">{children}</div>;
 }
 
+<<<<<<< HEAD
 function Field({ label, required, ...props }: any) {
   return (
     <div>
@@ -190,6 +229,13 @@ function Field({ label, required, ...props }: any) {
       <input {...props}
         onChange={(e) => props.onChange?.(e.target.value)}
         className="w-32 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-coral disabled:bg-secondary/40 disabled:text-muted-foreground" />
+=======
+function Field({ label, ...props }: any) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-muted-foreground block mb-1">{label}</label>
+      <input {...props} className="w-32 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-coral disabled:bg-secondary/40 disabled:text-muted-foreground" />
+>>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
     </div>
   );
 }
