@@ -1,10 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-<<<<<<< HEAD
 import { ArrowLeft, Camera, Upload, ChevronDown, ChevronRight, Mic, Zap } from "lucide-react";
-=======
-import { ArrowLeft, Camera, Upload, ChevronDown, ChevronRight, Zap } from "lucide-react";
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
 export const Route = createFileRoute("/_app/register")({ component: Register });
 
@@ -31,7 +27,6 @@ function Register() {
       </div>
 
       <div className="bg-card rounded-2xl shadow-soft p-6 space-y-5">
-<<<<<<< HEAD
         <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-mint/30 p-3">
           <div>
             <div className="font-semibold text-navy text-sm">Smart form fill</div>
@@ -45,8 +40,6 @@ function Register() {
           </button>
         </div>
 
-=======
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
         {/* Unknown toggle */}
         <div className="flex items-center justify-between rounded-xl bg-secondary/40 p-3">
           <div>

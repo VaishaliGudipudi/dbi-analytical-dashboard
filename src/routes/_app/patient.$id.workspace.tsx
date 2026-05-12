@@ -8,10 +8,7 @@ import {
 import { patients, diagnoses, triageMeta, wards } from "@/lib/mockData";
 import { DiagnosisGrid } from "@/components/app/DiagnosisGrid";
 import { TriageBadge } from "@/components/app/TriageBadge";
-<<<<<<< HEAD
 import { FormAssistActions } from "@/components/app/FormAssistActions";
-=======
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
 export const Route = createFileRoute("/_app/patient/$id/workspace")({ component: Workspace });
 
@@ -61,11 +58,7 @@ function Workspace() {
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       {/* Sticky context bar */}
-<<<<<<< HEAD
       <div className="sticky top-0 z-30 px-5 py-3 text-navy-foreground shadow-soft" style={{ background: "var(--navy)" }}>
-=======
-      <div className="sticky top-14 z-30 px-5 py-3 text-navy-foreground shadow-soft" style={{ background: "var(--navy)" }}>
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="h-8 w-8 grid place-items-center rounded-lg hover:bg-white/10">
@@ -94,25 +87,14 @@ function Workspace() {
             <ToolBtn icon={<ClipboardList className="h-4 w-4" />}>Nurse Assessment</ToolBtn>
             <ToolBtn icon={<HeartPulse className="h-4 w-4" />}>Add Vitals</ToolBtn>
             <ToolBtn icon={<Plus className="h-4 w-4" />}>Add Orders</ToolBtn>
-<<<<<<< HEAD
             <FormAssistActions compact onVoiceFill={() => setVoiceOn(true)} />
-=======
-            <button onClick={() => setVoiceOn(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-coral text-coral-foreground px-3 py-1.5 text-xs font-semibold hover:opacity-95">
-              <Mic className="h-4 w-4" /> Voice Fill
-            </button>
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-[260px_1fr_320px] gap-5 p-5 flex-1 min-h-0">
         {/* LEFT — care pathway */}
-<<<<<<< HEAD
         <aside className="bg-card rounded-2xl shadow-soft p-4 h-fit sticky top-24">
-=======
-        <aside className="bg-card rounded-2xl shadow-soft p-4 h-fit sticky top-32">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <h3 className="font-bold text-navy text-sm mb-3">Care Pathway</h3>
           <ol className="space-y-2.5">
             {[
@@ -462,11 +444,7 @@ function RightPanel({ diag, elapsed }: { diag?: any; elapsed: number }) {
     other: ["Complete primary assessment"],
   };
   return (
-<<<<<<< HEAD
     <aside className="space-y-3 sticky top-24 h-fit">
-=======
-    <aside className="space-y-3 sticky top-32 h-fit">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
       <Card title="Vitals" icon={<HeartPulse className="h-4 w-4" />}>
         <div className="text-sm text-muted-foreground">No vitals recorded</div>
         <button className="mt-2 text-xs font-semibold text-coral">+ Record vitals</button>
@@ -519,11 +497,7 @@ function Row({ label, value }: any) {
 
 function VoicePanel({ onClose }: { onClose: () => void }) {
   return (
-<<<<<<< HEAD
     <aside className="bg-card rounded-2xl shadow-soft-lg p-4 sticky top-24 h-fit">
-=======
-    <aside className="bg-card rounded-2xl shadow-soft-lg p-4 sticky top-32 h-fit">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="relative inline-flex h-3 w-3">

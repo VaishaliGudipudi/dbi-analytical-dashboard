@@ -2,11 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
-<<<<<<< HEAD
   ResponsiveContainer, Tooltip, CartesianGrid, Legend as RLegend, LabelList,
-=======
-  ResponsiveContainer, Tooltip, CartesianGrid, Legend as RLegend,
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 } from "recharts";
 import {
   Clock, Activity, Skull, ShieldCheck, Repeat, RotateCcw, AlertTriangle,
@@ -22,10 +18,7 @@ export const Route = createFileRoute("/_app/analytics")({ component: Analytics }
 
 type GroupId = "operational" | "clinical" | "quality";
 type RangeId = "7d" | "30d" | "90d" | "custom";
-<<<<<<< HEAD
 type FootfallView = "hour" | "shift" | "weekday" | "day" | "month" | "year";
-=======
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
 function dateRangeDays(range: RangeId, custom: { from: string; to: string }): string[] {
   const out: string[] = [];
@@ -125,10 +118,7 @@ function Analytics() {
   const [range, setRange] = useState<RangeId>("30d");
   const [custom, setCustom] = useState({ from: "", to: "" });
   const [drillId, setDrillId] = useState<string | null>(null);
-<<<<<<< HEAD
   const [graphDrill, setGraphDrill] = useState<string | null>(null);
-=======
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
   const days = useMemo(() => dateRangeDays(range, custom), [range, custom]);
 
@@ -183,15 +173,9 @@ function Analytics() {
         })}
       </div>
 
-<<<<<<< HEAD
       {tab === "operational" && <Operational days={days} onDrill={setDrillId} onGraphDrill={setGraphDrill} />}
       {tab === "clinical"    && <Clinical    days={days} onDrill={setDrillId} onGraphDrill={setGraphDrill} />}
       {tab === "quality"     && <Quality     days={days} onDrill={setDrillId} onGraphDrill={setGraphDrill} />}
-=======
-      {tab === "operational" && <Operational days={days} onDrill={setDrillId} />}
-      {tab === "clinical"    && <Clinical    days={days} onDrill={setDrillId} />}
-      {tab === "quality"     && <Quality     days={days} onDrill={setDrillId} />}
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
       {drillId && (
         <DrillPanel
@@ -200,10 +184,7 @@ function Analytics() {
           onClose={() => setDrillId(null)}
         />
       )}
-<<<<<<< HEAD
       {graphDrill && <GraphDrillPanel title={graphDrill} days={days} onClose={() => setGraphDrill(null)} />}
-=======
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
     </div>
   );
 }
@@ -297,14 +278,9 @@ const protocolSets = [
   { name: "Antivenom Set",   n: 7  }, { name: "Pediatric Set", n: 5  },
 ];
 
-<<<<<<< HEAD
 function Operational({ days, onDrill, onGraphDrill }: { days: string[]; onDrill: (id: string) => void; onGraphDrill: (title: string) => void }) {
   const opMetrics = METRICS.filter(m => m.group === "operational");
   const [footfallView, setFootfallView] = useState<FootfallView>("hour");
-=======
-function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) => void }) {
-  const opMetrics = METRICS.filter(m => m.group === "operational");
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 
   // Time series for footfall + ambulance vs walk-in + admissions by sex + MLC
   const footfall = days.map(d => {
@@ -339,17 +315,10 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
       </Group>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<<<<<<< HEAD
         <ChartCard title="Patient Disposition" onClick={() => onGraphDrill("Patient Disposition")}>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={dispositionDist} dataKey="value" nameKey="name" innerRadius={48} outerRadius={88} paddingAngle={3} label={({ value }) => value} labelLine={false}>
-=======
-        <ChartCard title="Patient Disposition">
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie data={dispositionDist} dataKey="value" nameKey="name" innerRadius={48} outerRadius={88} paddingAngle={3}>
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
                 {dispositionDist.map((d, i) => <Cell key={i} fill={d.color} />)}
               </Pie>
               <Tooltip contentStyle={tooltipStyle} />
@@ -358,17 +327,10 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
           <Legend items={dispositionDist} />
         </ChartCard>
 
-<<<<<<< HEAD
         <ChartCard title="Triage Categories Distribution" onClick={() => onGraphDrill("Triage Categories Distribution")}>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={triageDist} dataKey="value" nameKey="name" innerRadius={48} outerRadius={88} paddingAngle={3} label={({ value }) => value} labelLine={false}>
-=======
-        <ChartCard title="Triage Categories Distribution">
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie data={triageDist} dataKey="value" nameKey="name" innerRadius={48} outerRadius={88} paddingAngle={3}>
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
                 {triageDist.map((d, i) => <Cell key={i} fill={d.color} />)}
               </Pie>
               <Tooltip contentStyle={tooltipStyle} />
@@ -379,11 +341,7 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<<<<<<< HEAD
         <ChartCard title="Triage Levels vs Disposition" onClick={() => onGraphDrill("Triage Levels vs Disposition")}>
-=======
-        <ChartCard title="Triage Levels vs Disposition">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={triageVsDispo}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -391,28 +349,16 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} />
               <RLegend wrapperStyle={{ fontSize: 11 }} />
-<<<<<<< HEAD
               <Bar dataKey="discharged" stackId="a" fill="var(--urgent-safe)"><LabelList dataKey="discharged" position="inside" fill="white" fontSize={10} /></Bar>
               <Bar dataKey="admitted"   stackId="a" fill="var(--navy)"><LabelList dataKey="admitted" position="inside" fill="white" fontSize={10} /></Bar>
               <Bar dataKey="referred"   stackId="a" fill="var(--coral)"><LabelList dataKey="referred" position="inside" fill="white" fontSize={10} /></Bar>
               <Bar dataKey="lama"       stackId="a" fill="var(--urgent-pending)"><LabelList dataKey="lama" position="inside" fill="var(--navy)" fontSize={10} /></Bar>
               <Bar dataKey="expired"    stackId="a" fill="var(--urgent-critical)" radius={[8, 8, 0, 0]}><LabelList dataKey="expired" position="top" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="discharged" stackId="a" fill="var(--urgent-safe)" />
-              <Bar dataKey="admitted"   stackId="a" fill="var(--navy)" />
-              <Bar dataKey="referred"   stackId="a" fill="var(--coral)" />
-              <Bar dataKey="lama"       stackId="a" fill="var(--urgent-pending)" />
-              <Bar dataKey="expired"    stackId="a" fill="var(--urgent-critical)" radius={[8, 8, 0, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-<<<<<<< HEAD
         <ChartCard title="Provider-wise Disposition Breakdown" onClick={() => onGraphDrill("Provider-wise Disposition Breakdown")}>
-=======
-        <ChartCard title="Provider-wise Disposition Breakdown">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={providerDispo}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -420,38 +366,24 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} />
               <RLegend wrapperStyle={{ fontSize: 11 }} />
-<<<<<<< HEAD
               <Bar dataKey="discharged" stackId="a" fill="var(--urgent-safe)"><LabelList dataKey="discharged" position="inside" fill="white" fontSize={10} /></Bar>
               <Bar dataKey="admitted"   stackId="a" fill="var(--navy)"><LabelList dataKey="admitted" position="inside" fill="white" fontSize={10} /></Bar>
               <Bar dataKey="referred"   stackId="a" fill="var(--coral)"><LabelList dataKey="referred" position="inside" fill="white" fontSize={10} /></Bar>
               <Bar dataKey="lama"       stackId="a" fill="var(--urgent-pending)" radius={[8, 8, 0, 0]}><LabelList dataKey="lama" position="top" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="discharged" stackId="a" fill="var(--urgent-safe)" />
-              <Bar dataKey="admitted"   stackId="a" fill="var(--navy)" />
-              <Bar dataKey="referred"   stackId="a" fill="var(--coral)" />
-              <Bar dataKey="lama"       stackId="a" fill="var(--urgent-pending)" radius={[8, 8, 0, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<<<<<<< HEAD
         <ChartCard title="Male vs Female Admissions" onClick={() => onGraphDrill("Male vs Female Admissions")}>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={footfall}>
-=======
-        <ChartCard title="Male vs Female Admission Trend">
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={footfall}>
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="date" tickFormatter={fmtShort} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} minTickGap={20} />
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} labelFormatter={fmtShort} />
               <RLegend wrapperStyle={{ fontSize: 11 }} />
-<<<<<<< HEAD
               <Bar dataKey="M" fill="var(--navy)" name="Male" radius={[6, 6, 0, 0]}><LabelList dataKey="M" position="top" fill="var(--navy)" fontSize={10} /></Bar>
               <Bar dataKey="F" fill="var(--coral)" name="Female" radius={[6, 6, 0, 0]}><LabelList dataKey="F" position="top" fill="var(--coral)" fontSize={10} /></Bar>
             </BarChart>
@@ -459,15 +391,6 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
         </ChartCard>
 
         <ChartCard title="Age Group with Gender Distribution" onClick={() => onGraphDrill("Age Group with Gender Distribution")}>
-=======
-              <Line type="monotone" dataKey="M" stroke="var(--navy)" strokeWidth={2.5} dot={false} name="Male" />
-              <Line type="monotone" dataKey="F" stroke="var(--coral)" strokeWidth={2.5} dot={false} name="Female" />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Age Group with Gender Distribution">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={ageGenderBuckets}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -475,19 +398,13 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} />
               <RLegend wrapperStyle={{ fontSize: 11 }} />
-<<<<<<< HEAD
               <Bar dataKey="M" stackId="g" fill="var(--navy)" name="Male"><LabelList dataKey="M" position="inside" fill="white" fontSize={10} /></Bar>
               <Bar dataKey="F" stackId="g" fill="var(--coral)" name="Female" radius={[8, 8, 0, 0]}><LabelList dataKey="F" position="top" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="M" stackId="g" fill="var(--navy)" name="Male" />
-              <Bar dataKey="F" stackId="g" fill="var(--coral)" name="Female" radius={[8, 8, 0, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-<<<<<<< HEAD
       <PatientFootfallCard
         view={footfallView}
         setView={setFootfallView}
@@ -500,62 +417,6 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Ambulance vs Walk-In (trend)" onClick={() => onGraphDrill("Ambulance vs Walk-In")}>
-=======
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Footfall by Day">
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={footfall}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" tickFormatter={fmtShort} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} minTickGap={20} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              <Tooltip contentStyle={tooltipStyle} labelFormatter={fmtShort} />
-              <Line type="monotone" dataKey="total" stroke="var(--navy)" strokeWidth={2.5} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Footfall by Hour (today)">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={byHour}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="patients" fill="var(--coral)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Footfall by Weekday">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={byWeekday}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="wd" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="patients" fill="var(--navy)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Footfall by Shift">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={byShift} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              <YAxis dataKey="shift" type="category" width={140} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="patients" fill="var(--coral)" radius={[0, 8, 8, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Ambulance vs Walk-In (trend)">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={footfall}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -563,77 +424,50 @@ function Operational({ days, onDrill }: { days: string[]; onDrill: (id: string) 
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} labelFormatter={fmtShort} />
               <RLegend wrapperStyle={{ fontSize: 11 }} />
-<<<<<<< HEAD
               <Line type="monotone" dataKey="ambulance" stroke="var(--navy)" strokeWidth={2.5} dot name="Ambulance">
                 <LabelList dataKey="ambulance" position="top" fill="var(--navy)" fontSize={10} />
               </Line>
               <Line type="monotone" dataKey="walkIn"    stroke="var(--coral)" strokeWidth={2.5} dot name="Walk-In">
                 <LabelList dataKey="walkIn" position="bottom" fill="var(--coral)" fontSize={10} />
               </Line>
-=======
-              <Line type="monotone" dataKey="ambulance" stroke="var(--navy)" strokeWidth={2.5} dot={false} name="Ambulance" />
-              <Line type="monotone" dataKey="walkIn"    stroke="var(--coral)" strokeWidth={2.5} dot={false} name="Walk-In" />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
-<<<<<<< HEAD
         <ChartCard title="MLC Cases by Day" onClick={() => onGraphDrill("MLC Cases by Day")}>
-=======
-        <ChartCard title="MLC Cases by Day">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={footfall}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="date" tickFormatter={fmtShort} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} minTickGap={20} />
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} labelFormatter={fmtShort} />
-<<<<<<< HEAD
               <Bar dataKey="mlc" fill="var(--coral)" radius={[6, 6, 0, 0]}><LabelList dataKey="mlc" position="top" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="mlc" fill="var(--coral)" radius={[6, 6, 0, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<<<<<<< HEAD
         <ChartCard title="Protocol Sets Ordered" onClick={() => onGraphDrill("Protocol Sets Ordered")}>
-=======
-        <ChartCard title="Protocol Sets Ordered">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={protocolSets} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} />
-<<<<<<< HEAD
               <Bar dataKey="n" fill="var(--navy)" radius={[0, 8, 8, 0]}><LabelList dataKey="n" position="right" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="n" fill="var(--navy)" radius={[0, 8, 8, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-<<<<<<< HEAD
         <ChartCard title="Ward Bed Utilization" onClick={() => onGraphDrill("Ward Bed Utilization")}>
           <WardTable onDrill={() => onGraphDrill("Ward Bed Utilization")} />
-=======
-        <ChartCard title="Ward Bed Utilization">
-          <WardTable />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
         </ChartCard>
       </div>
     </div>
   );
 }
 
-<<<<<<< HEAD
 function PatientFootfallCard({
   view,
   setView,
@@ -724,8 +558,6 @@ function aggregateFootfall(footfall: { date: string; total: number }[], group: "
   return Array.from(map, ([label, patients]) => ({ label, patients }));
 }
 
-=======
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 /* ───────────────────────────── Clinical tab ───────────────────────────── */
 
 const pathwayCases = [
@@ -749,11 +581,7 @@ const topInvestigations = [
   ["CT Chest", 18], ["USG Abdomen", 17], ["Coag Profile", 15], ["Lactate", 13],
 ] as const;
 
-<<<<<<< HEAD
 function Clinical({ days, onDrill, onGraphDrill }: { days: string[]; onDrill: (id: string) => void; onGraphDrill: (title: string) => void }) {
-=======
-function Clinical({ days, onDrill }: { days: string[]; onDrill: (id: string) => void }) {
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
   const m = METRICS.filter(x => x.group === "clinical");
   return (
     <div className="space-y-6">
@@ -763,34 +591,21 @@ function Clinical({ days, onDrill }: { days: string[]; onDrill: (id: string) => 
         </div>
       </Group>
 
-<<<<<<< HEAD
       <ChartCard title="ER Cases by Care Pathway" onClick={() => onGraphDrill("ER Cases by Care Pathway")}>
-=======
-      <ChartCard title="ER Cases by Care Pathway">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={pathwayCases}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
             <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
             <Tooltip contentStyle={tooltipStyle} />
-<<<<<<< HEAD
             <Bar dataKey="n" fill="var(--coral)" radius={[8, 8, 0, 0]}><LabelList dataKey="n" position="top" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-            <Bar dataKey="n" fill="var(--coral)" radius={[8, 8, 0, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<<<<<<< HEAD
         <RankList title="Top 15 Medications Prescribed" Icon={Pill} items={topMeds as any} onDrill={() => onGraphDrill("Top 15 Medications Prescribed")} />
         <RankList title="Top 15 Investigations Ordered" Icon={FlaskConical} items={topInvestigations as any} onDrill={() => onGraphDrill("Top 15 Investigations Ordered")} />
-=======
-        <RankList title="Top 15 Medications Prescribed" Icon={Pill} items={topMeds as any} />
-        <RankList title="Top 15 Investigations Ordered" Icon={FlaskConical} items={topInvestigations as any} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
       </div>
     </div>
   );
@@ -818,11 +633,7 @@ const referralOut = [
   { dest: "Other",                   n: 5 },
 ];
 
-<<<<<<< HEAD
 function Quality({ days, onDrill, onGraphDrill }: { days: string[]; onDrill: (id: string) => void; onGraphDrill: (title: string) => void }) {
-=======
-function Quality({ days, onDrill }: { days: string[]; onDrill: (id: string) => void }) {
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
   const m = METRICS.filter(x => x.group === "quality");
 
   // LAMA rate trend
@@ -837,86 +648,54 @@ function Quality({ days, onDrill }: { days: string[]; onDrill: (id: string) => v
       </Group>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<<<<<<< HEAD
         <ChartCard title="LAMA Rate Trend" onClick={() => onGraphDrill("LAMA Rate Trend")}>
-=======
-        <ChartCard title="LAMA Rate Trend">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={lamaRateSeries.map(d => ({ ...d, pct: d.value * 100 }))}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="date" tickFormatter={fmtShort} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} minTickGap={20} />
               <YAxis unit="%" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} labelFormatter={fmtShort} formatter={(v: any) => `${Number(v).toFixed(2)}%`} />
-<<<<<<< HEAD
               <Line type="monotone" dataKey="pct" stroke="var(--coral)" strokeWidth={2.5} dot>
                 <LabelList dataKey="pct" position="top" fill="var(--navy)" fontSize={10} formatter={(v: any) => Number(v).toFixed(1)} />
               </Line>
-=======
-              <Line type="monotone" dataKey="pct" stroke="var(--coral)" strokeWidth={2.5} dot={false} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
-<<<<<<< HEAD
         <ChartCard title="Outward Referral Analysis" onClick={() => onGraphDrill("Outward Referral Analysis")}>
-=======
-        <ChartCard title="Outward Referral Analysis">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={referralOut} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <YAxis dataKey="dest" type="category" width={150} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} />
-<<<<<<< HEAD
               <Bar dataKey="n" fill="var(--navy)" radius={[0, 8, 8, 0]}><LabelList dataKey="n" position="right" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="n" fill="var(--navy)" radius={[0, 8, 8, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<<<<<<< HEAD
         <ChartCard title="LAMA by Reason" onClick={() => onGraphDrill("LAMA by Reason")}>
-=======
-        <ChartCard title="LAMA by Reason">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={lamaReasons}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="reason" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} />
-<<<<<<< HEAD
               <Bar dataKey="n" fill="var(--coral)" radius={[6, 6, 0, 0]}><LabelList dataKey="n" position="top" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="n" fill="var(--coral)" radius={[6, 6, 0, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-<<<<<<< HEAD
         <ChartCard title="LAMA by Pincode" onClick={() => onGraphDrill("LAMA by Pincode")}>
-=======
-        <ChartCard title="LAMA by Pincode">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={lamaPincode}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="pin" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
               <Tooltip contentStyle={tooltipStyle} />
-<<<<<<< HEAD
               <Bar dataKey="n" fill="var(--navy)" radius={[6, 6, 0, 0]}><LabelList dataKey="n" position="top" fill="var(--navy)" fontSize={10} /></Bar>
-=======
-              <Bar dataKey="n" fill="var(--navy)" radius={[6, 6, 0, 0]} />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -930,11 +709,6 @@ function Quality({ days, onDrill }: { days: string[]; onDrill: (id: string) => v
 function MetricCard({ m, days, onDrill }: { m: Metric; days: string[]; onDrill: (id: string) => void }) {
   const series = useMemo(() => buildSeries(m, days), [m, days]);
   const avg = series.reduce((s, x) => s + x.value, 0) / series.length;
-<<<<<<< HEAD
-=======
-  const recent = series.slice(-7).reduce((s, x) => s + x.value, 0) / Math.min(7, series.length);
-  const delta = recent - avg;
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
   const colors: Record<string, string> = {
     navy: "var(--navy)", coral: "var(--coral)", amber: "var(--amber-emerg)", green: "var(--urgent-safe)",
   };
@@ -951,16 +725,7 @@ function MetricCard({ m, days, onDrill }: { m: Metric; days: string[]; onDrill: 
       </div>
       <div className="text-3xl font-bold text-navy tracking-tight">{m.fmt(avg)}</div>
       <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
-<<<<<<< HEAD
         <span>{m.target}</span>
-=======
-        <span>
-          {m.target}{" · "}
-          <span style={{ color: delta < 0 ? "var(--urgent-safe)" : "var(--coral)" }}>
-            {delta >= 0 ? "+" : ""}{m.fmt(Math.abs(delta))} vs avg
-          </span>
-        </span>
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
         <ChevronRight className="h-3.5 w-3.5 text-coral opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
     </button>
@@ -1028,13 +793,9 @@ function DrillPanel({ metric, days, onClose }: { metric: Metric; days: string[];
                     );
                   }}
                   activeDot={{ r: 7, fill: "var(--amber-emerg)" }}
-<<<<<<< HEAD
                 >
                   <LabelList dataKey="display" position="top" fill="var(--navy)" fontSize={10} formatter={(v: any) => metric.kind === "rate" ? Number(v).toFixed(1) : Math.round(Number(v))} />
                 </Line>
-=======
-                />
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -1076,7 +837,6 @@ function DrillPanel({ metric, days, onClose }: { metric: Metric; days: string[];
   );
 }
 
-<<<<<<< HEAD
 function GraphDrillPanel({ title, days, onClose }: { title: string; days: string[]; onClose: () => void }) {
   const selDate = days[days.length - 1];
   const list = useMemo(() => patientsFor(title, selDate), [title, selDate]);
@@ -1123,8 +883,6 @@ function GraphDrillPanel({ title, days, onClose }: { title: string; days: string
   );
 }
 
-=======
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
 /* ───────────────────────────── Shared bits ───────────────────────────── */
 
 const tooltipStyle = { borderRadius: 12, border: "1px solid var(--border)", background: "white" };
@@ -1138,7 +896,6 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-<<<<<<< HEAD
 function ChartCard({ title, children, className = "", onClick }: { title: string; children: React.ReactNode; className?: string; onClick?: () => void }) {
   return (
     <div onClick={onClick} className={`bg-card rounded-2xl shadow-soft p-5 ${onClick ? "cursor-pointer hover:shadow-soft-lg transition-shadow" : ""} ${className}`}>
@@ -1146,12 +903,6 @@ function ChartCard({ title, children, className = "", onClick }: { title: string
         <h3 className="font-bold text-navy">{title}</h3>
         {onClick && <span className="text-[11px] font-semibold text-coral">Click for patients</span>}
       </div>
-=======
-function ChartCard({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`bg-card rounded-2xl shadow-soft p-5 ${className}`}>
-      <h3 className="font-bold text-navy mb-3">{title}</h3>
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
       {children}
     </div>
   );
@@ -1171,17 +922,10 @@ function Legend({ items }: { items: { name: string; value: number; color: string
   );
 }
 
-<<<<<<< HEAD
 function RankList({ title, Icon, items, onDrill }: { title: string; Icon: any; items: readonly (readonly [string, number])[]; onDrill?: () => void }) {
   const max = Math.max(...items.map(([, n]) => n));
   return (
     <div onClick={onDrill} className={`bg-card rounded-2xl shadow-soft p-5 ${onDrill ? "cursor-pointer hover:shadow-soft-lg transition-shadow" : ""}`}>
-=======
-function RankList({ title, Icon, items }: { title: string; Icon: any; items: readonly (readonly [string, number])[] }) {
-  const max = Math.max(...items.map(([, n]) => n));
-  return (
-    <div className="bg-card rounded-2xl shadow-soft p-5">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
       <h3 className="font-bold text-navy mb-3 inline-flex items-center gap-2"><Icon className="h-4 w-4 text-coral" />{title}</h3>
       <ol className="space-y-2">
         {items.map(([name, n], i) => (
@@ -1199,11 +943,7 @@ function RankList({ title, Icon, items }: { title: string; Icon: any; items: rea
   );
 }
 
-<<<<<<< HEAD
 function WardTable({ onDrill }: { onDrill?: () => void }) {
-=======
-function WardTable() {
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
   return (
     <table className="w-full text-sm">
       <thead className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -1214,11 +954,7 @@ function WardTable() {
           const pct = Math.round((w.occupied / w.total) * 100);
           const tone = pct >= 90 ? "var(--urgent-critical)" : pct >= 75 ? "var(--urgent-urgent)" : "var(--urgent-safe)";
           return (
-<<<<<<< HEAD
             <tr key={w.name} onClick={onDrill} className="border-t border-border cursor-pointer hover:bg-secondary/30">
-=======
-            <tr key={w.name} className="border-t border-border">
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
               <td className="py-2 text-navy font-medium">{w.name}</td>
               <td className="py-2 text-right tabular-nums text-muted-foreground">{w.occupied}/{w.total}</td>
               <td className="py-2 text-right"><span className="font-bold" style={{ color: tone }}>{pct}%</span></td>
@@ -1231,8 +967,4 @@ function WardTable() {
 }
 
 /* ─ silence "imported but unused" guard for icons we keep available ─ */
-<<<<<<< HEAD
 void TrendingUp; void Truck; void Users; void FileText;
-=======
-void TrendingUp; void Truck; void Users; void FileText;
->>>>>>> 2f8bf1375f9aacc63ac08f477715a9a3a0b66b25
