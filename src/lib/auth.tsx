@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type Role = "doctor" | "nurse" | "admin";
+export type Role = "doctor" | "nurse" | "admin" | "analytics";
 export interface User { name: string; email: string; role: Role; }
 
 interface AuthCtx {
