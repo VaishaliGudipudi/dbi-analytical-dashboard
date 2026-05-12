@@ -1,14 +1,16 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Stethoscope, HeartPulse, BarChart3, Activity } from "lucide-react";
+import { Stethoscope, HeartPulse, BarChart3, Briefcase } from "lucide-react";
 import { useAuth, type Role } from "@/lib/auth";
+import logo from "@/assets/logo.jpeg";
 
 export const Route = createFileRoute("/")({ component: Login });
 
 const roles: { id: Role; label: string; desc: string; Icon: any }[] = [
   { id: "doctor", label: "Doctor", desc: "Patient care & clinical workflow", Icon: Stethoscope },
   { id: "nurse", label: "Nurse", desc: "Triage & vitals documentation", Icon: HeartPulse },
-  { id: "admin", label: "Admin", desc: "Analytics & department reports", Icon: BarChart3 },
+  { id: "analytics", label: "Analytics", desc: "ED operational & clinical insights", Icon: BarChart3 },
+  { id: "admin", label: "Admin", desc: "Department & performance reports", Icon: Briefcase },
 ];
 
 function Login() {
@@ -20,9 +22,12 @@ function Login() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const name = role === "doctor" ? "Dr. Tejaswi" : role === "nurse" ? "Nurse Anita" : "Admin Patel";
+    const name =
+      role === "doctor" ? "Dr. Tejaswi" :
+      role === "nurse" ? "Nurse Anita" :
+      role === "analytics" ? "Analyst Rao" : "Admin Patel";
     login({ name, email, role });
-    navigate({ to: role === "admin" ? "/analytics" : "/dashboard" });
+    navigate({ to: role === "analytics" || role === "admin" ? "/analytics" : "/dashboard" });
   };
 
   return (
@@ -31,15 +36,13 @@ function Login() {
         <div className="w-full max-w-3xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-3 mb-4">
-              <div className="h-12 w-12 rounded-2xl bg-coral text-coral-foreground grid place-items-center shadow-soft-lg">
-                <Activity className="h-6 w-6" strokeWidth={2.5} />
-              </div>
+              <img src={logo} alt="Discover BioInsights" className="h-14 w-14 rounded-2xl object-contain bg-white shadow-soft-lg" />
               <span className="text-2xl font-semibold text-navy-foreground tracking-tight">Discover BioInsights</span>
             </div>
             <p className="text-sm" style={{ color: "oklch(0.85 0.02 80)" }}>Emergency Analytics Platform</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {roles.map(({ id, label, desc, Icon }) => {
               const active = role === id;
               return (
@@ -47,11 +50,12 @@ function Login() {
                   key={id}
                   type="button"
                   onClick={() => setRole(id)}
-                  className={`rounded-2xl bg-card p-5 text-left transition-all shadow-soft hover:shadow-soft-lg ${active ? "ring-2 ring-coral -translate-y-0.5" : "ring-1 ring-transparent"}`}
+                  className={`rounded-2xl p-5 text-left transition-all shadow-soft hover:shadow-soft-lg ${active ? "-translate-y-0.5 ring-2" : "bg-card ring-1 ring-transparent"}`}
+                  style={active ? { background: "var(--amber-emerg)", color: "white", boxShadow: "0 8px 24px -8px var(--amber-emerg)" } : undefined}
                 >
-                  <Icon className="h-7 w-7 text-coral mb-3" />
-                  <div className="font-semibold text-navy text-base">{label}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                  <Icon className={`h-7 w-7 mb-3 ${active ? "text-white" : "text-coral"}`} />
+                  <div className={`font-semibold text-base ${active ? "text-white" : "text-navy"}`}>{label}</div>
+                  <div className={`text-xs mt-1 ${active ? "text-white/85" : "text-muted-foreground"}`}>{desc}</div>
                 </button>
               );
             })}
