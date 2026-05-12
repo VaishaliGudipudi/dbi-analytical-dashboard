@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, FlaskConical, Pill, Settings,
-  BarChart3, FileText, UserCog, Bell, LogOut, Activity, ChevronLeft, ChevronRight,
+  BarChart3, FileText, UserCog, Bell, LogOut, ChevronLeft, ChevronRight,
 } from "lucide-react";
+import logo from "@/assets/logo.jpeg";
 
 export const Route = createFileRoute("/_app")({ component: AppShell });
 
@@ -16,10 +17,16 @@ const clinicalNav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-const adminNav = [
+const analyticsNav = [
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/settings", label: "Settings", icon: Settings },
+];
+
+const adminNav = [
+  { to: "/analytics", label: "Performance", icon: BarChart3 },
   { to: "/staff", label: "Staff", icon: UserCog },
+  { to: "/reports", label: "Reports", icon: FileText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -34,16 +41,16 @@ function AppShell() {
   }, [user, navigate]);
 
   if (!user) return null;
-  const nav = user.role === "admin" ? adminNav : clinicalNav;
+  const nav =
+    user.role === "analytics" ? analyticsNav :
+    user.role === "admin" ? adminNav : clinicalNav;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Top nav */}
       <header className="h-14 flex items-center justify-between px-4 text-navy-foreground shadow-soft sticky top-0 z-40" style={{ background: "var(--navy)" }}>
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-coral grid place-items-center">
-            <Activity className="h-5 w-5 text-white" strokeWidth={2.5} />
-          </div>
+          <img src={logo} alt="Discover BioInsights" className="h-9 w-9 rounded-xl object-contain bg-white" />
           <div>
             <div className="text-sm font-semibold tracking-tight">Discover BioInsights</div>
             <div className="text-[11px] opacity-70 -mt-0.5">Emergency Analytics Platform</div>
