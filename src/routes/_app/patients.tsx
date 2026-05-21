@@ -1,14 +1,99 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { Plus, Search } from "lucide-react";
+import { patients, wards, triageMeta } from "@/lib/mockData";
+import { TriageBadge } from "@/components/app/TriageBadge";
 
 export const Route = createFileRoute("/_app/patients")({ component: Page });
 
+const EXTRA = [
+  { id: "d1", name: "Meera Joshi", age: 62, sex: "F" as const, umr: "UMR-2001", triage: 2 as const, bed: "—", checkIn: "Yest 14:20", physician: "Dr. Mehta", pathway: "Sepsis Bundle", department: "Medicine", status: "discharged" as const },
+  { id: "d2", name: "Vikram Singh", age: 38, sex: "M" as const, umr: "UMR-1980", triage: 1 as const, bed: "—", checkIn: "2d ago", physician: "Dr. Khan", pathway: "Trauma", department: "Trauma", status: "discharged" as const },
+];
+
 function Page() {
+  const navigate = useNavigate();
+  const all = useMemo(() => [...patients, ...EXTRA], []);
+  const [q, setQ] = useState("");
+  const [doc, setDoc] = useState("all");
+  const [ward, setWard] = useState("all");
+  const [status, setStatus] = useState("all");
+
+  const docs = Array.from(new Set(all.map(p => p.physician))).filter(d => d !== "—");
+
+  const filtered = all.filter(p => {
+    if (q && !`${p.name} ${p.umr}`.toLowerCase().includes(q.toLowerCase())) return false;
+    if (doc !== "all" && p.physician !== doc) return false;
+    if (status !== "all" && p.status !== status) return false;
+    if (ward !== "all") {
+      if (ward === "Emergency" && !p.bed.startsWith("ER-")) return false;
+      if (ward === "Observation" && !p.bed.startsWith("OBS-")) return false;
+      if (ward === "ICU" && !p.pathway.match(/STEMI|Stroke/)) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
-      <h1 className="text-2xl font-bold text-navy capitalize">patients</h1>
-      <p className="text-sm text-muted-foreground mb-6">Module coming soon</p>
-      <div className="bg-card rounded-2xl shadow-soft p-12 text-center text-muted-foreground">
-        The patients module will appear here in a future release.
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h1 className="text-2xl font-bold text-navy">Patient Monitoring</h1>
+          <p className="text-sm text-muted-foreground">Quick lookup across all ED & discharged patients</p>
+        </div>
+        <button onClick={() => navigate({ to: "/register" })}
+          className="inline-flex items-center gap-2 rounded-xl bg-navy text-navy-foreground px-4 py-2.5 text-sm font-semibold shadow-soft">
+          <Plus className="h-4 w-4"/> New Registration
+        </button>
+      </div>
+
+      <div className="bg-card rounded-2xl shadow-soft p-4 mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="relative md:col-span-2">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search by name or UMR..." className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-coral"/>
+        </div>
+        <select value={doc} onChange={e=>setDoc(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm">
+          <option value="all">All Doctors</option>
+          {docs.map(d => <option key={d}>{d}</option>)}
+        </select>
+        <select value={ward} onChange={e=>setWard(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm">
+          <option value="all">All Wards</option>
+          {wards.map(w => <option key={w.name}>{w.name}</option>)}
+        </select>
+      </div>
+
+      <div className="flex gap-2 mb-4">
+        {[{id:"all",label:"All"},{id:"ed",label:"ED Active"},{id:"obs",label:"Observation"},{id:"discharged",label:"Discharged"}].map(s => (
+          <button key={s.id} onClick={()=>setStatus(s.id)}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium ${status===s.id?"bg-navy text-navy-foreground":"bg-card text-navy border border-border hover:bg-secondary/50"}`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-card rounded-2xl shadow-soft overflow-hidden">
+        <div className="grid grid-cols-[1.6fr_0.9fr_0.6fr_0.8fr_0.9fr_1fr_0.9fr_0.6fr] gap-4 px-5 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border bg-secondary/30">
+          <div>Name</div><div>Triage</div><div>Bed</div><div>Check-in</div><div>Physician</div><div>Pathway</div><div>Status</div><div className="text-right">Action</div>
+        </div>
+        {filtered.map(p => (
+          <div key={p.id} className="grid grid-cols-[1.6fr_0.9fr_0.6fr_0.8fr_0.9fr_1fr_0.9fr_0.6fr] gap-4 px-5 py-3 items-center border-b border-border last:border-0 hover:bg-secondary/30">
+            <div>
+              <div className="font-semibold text-navy text-sm">{p.name}</div>
+              <div className="text-xs text-muted-foreground">{p.age>0?`${p.age}y`:"-"} · {p.sex} · {p.umr}</div>
+            </div>
+            <TriageBadge level={p.triage}/>
+            <div className="text-sm text-navy">{p.bed}</div>
+            <div className="text-sm text-muted-foreground">{p.checkIn}</div>
+            <div className="text-sm text-navy">{p.physician}</div>
+            <div className="text-sm">{p.pathway}</div>
+            <div className="text-xs">
+              <span className={`px-2 py-0.5 rounded-full font-semibold ${p.status==="discharged"?"bg-secondary text-muted-foreground":"bg-mint text-navy"}`}>{p.status}</span>
+            </div>
+            <div className="text-right">
+              <Link to="/patient/$id/workspace" params={{id:p.id}} className="rounded-lg bg-coral text-coral-foreground text-xs font-semibold px-3 py-1.5">Open</Link>
+            </div>
+          </div>
+        ))}
+        {filtered.length===0 && <div className="p-10 text-center text-sm text-muted-foreground">No patients match your filters.</div>}
       </div>
     </div>
   );
