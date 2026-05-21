@@ -21,6 +21,8 @@ import { Route as AppMedicationsRouteImport } from './routes/_app/medications'
 import { Route as AppLabsRouteImport } from './routes/_app/labs'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
+import { Route as AppMastersMedicationsRouteImport } from './routes/_app/masters.medications'
+import { Route as AppMastersLabPanelsRouteImport } from './routes/_app/masters.lab-panels'
 import { Route as AppPatientIdWorkspaceRouteImport } from './routes/_app/patient.$id.workspace'
 
 const AppRoute = AppRouteImport.update({
@@ -82,6 +84,16 @@ const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMastersMedicationsRoute = AppMastersMedicationsRouteImport.update({
+  id: '/masters/medications',
+  path: '/masters/medications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMastersLabPanelsRoute = AppMastersLabPanelsRouteImport.update({
+  id: '/masters/lab-panels',
+  path: '/masters/lab-panels',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPatientIdWorkspaceRoute = AppPatientIdWorkspaceRouteImport.update({
   id: '/patient/$id/workspace',
   path: '/patient/$id/workspace',
@@ -100,6 +112,8 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/staff': typeof AppStaffRoute
+  '/masters/lab-panels': typeof AppMastersLabPanelsRoute
+  '/masters/medications': typeof AppMastersMedicationsRoute
   '/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRoutesByTo {
@@ -114,6 +128,8 @@ export interface FileRoutesByTo {
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/staff': typeof AppStaffRoute
+  '/masters/lab-panels': typeof AppMastersLabPanelsRoute
+  '/masters/medications': typeof AppMastersMedicationsRoute
   '/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRoutesById {
@@ -130,6 +146,8 @@ export interface FileRoutesById {
   '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/staff': typeof AppStaffRoute
+  '/_app/masters/lab-panels': typeof AppMastersLabPanelsRoute
+  '/_app/masters/medications': typeof AppMastersMedicationsRoute
   '/_app/patient/$id/workspace': typeof AppPatientIdWorkspaceRoute
 }
 export interface FileRouteTypes {
@@ -146,6 +164,8 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/staff'
+    | '/masters/lab-panels'
+    | '/masters/medications'
     | '/patient/$id/workspace'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -160,6 +180,8 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/staff'
+    | '/masters/lab-panels'
+    | '/masters/medications'
     | '/patient/$id/workspace'
   id:
     | '__root__'
@@ -175,6 +197,8 @@ export interface FileRouteTypes {
     | '/_app/reports'
     | '/_app/settings'
     | '/_app/staff'
+    | '/_app/masters/lab-panels'
+    | '/_app/masters/medications'
     | '/_app/patient/$id/workspace'
   fileRoutesById: FileRoutesById
 }
@@ -269,6 +293,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAnalyticsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/masters/medications': {
+      id: '/_app/masters/medications'
+      path: '/masters/medications'
+      fullPath: '/masters/medications'
+      preLoaderRoute: typeof AppMastersMedicationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/masters/lab-panels': {
+      id: '/_app/masters/lab-panels'
+      path: '/masters/lab-panels'
+      fullPath: '/masters/lab-panels'
+      preLoaderRoute: typeof AppMastersLabPanelsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/patient/$id/workspace': {
       id: '/_app/patient/$id/workspace'
       path: '/patient/$id/workspace'
@@ -290,6 +328,8 @@ interface AppRouteChildren {
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppStaffRoute: typeof AppStaffRoute
+  AppMastersLabPanelsRoute: typeof AppMastersLabPanelsRoute
+  AppMastersMedicationsRoute: typeof AppMastersMedicationsRoute
   AppPatientIdWorkspaceRoute: typeof AppPatientIdWorkspaceRoute
 }
 
@@ -304,6 +344,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppStaffRoute: AppStaffRoute,
+  AppMastersLabPanelsRoute: AppMastersLabPanelsRoute,
+  AppMastersMedicationsRoute: AppMastersMedicationsRoute,
   AppPatientIdWorkspaceRoute: AppPatientIdWorkspaceRoute,
 }
 
