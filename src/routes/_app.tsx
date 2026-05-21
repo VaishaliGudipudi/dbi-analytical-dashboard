@@ -1,32 +1,31 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import {
-  LayoutDashboard, Users, FlaskConical, Pill, Settings,
-  BarChart3, FileText, UserCog, Bell, LogOut, ChevronLeft, ChevronRight,
+  LayoutDashboard, Users, FlaskConical, Pill, Settings, BarChart3, FileText,
+  UserCog, Bell, LogOut, ChevronLeft, ChevronRight, User as UserIcon, Beaker,
 } from "lucide-react";
 import logo from "@/assets/discover_bio_logo.svg";
+import { ReportsModal } from "@/components/app/ReportsModal";
 
 export const Route = createFileRoute("/_app")({ component: AppShell });
 
 const clinicalNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/patients", label: "Patients", icon: Users },
-  { to: "/labs", label: "Labs", icon: FlaskConical },
-  { to: "/medications", label: "Medications", icon: Pill },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
-
-const analyticsNav = [
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/analytics", label: "Performance Analytics", icon: BarChart3 },
+  { to: "/masters/medications", label: "Medication Master", icon: Pill },
+  { to: "/masters/lab-panels", label: "Lab Panel Master", icon: Beaker },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 const adminNav = [
-  { to: "/analytics", label: "Performance", icon: BarChart3 },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/patients", label: "Patients", icon: Users },
+  { to: "/analytics", label: "Performance Analytics", icon: BarChart3 },
   { to: "/staff", label: "Staff", icon: UserCog },
-  { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/masters/medications", label: "Medication Master", icon: Pill },
+  { to: "/masters/lab-panels", label: "Lab Panel Master", icon: Beaker },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -35,15 +34,24 @@ function AppShell() {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [collapsed, setCollapsed] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) navigate({ to: "/" });
   }, [user, navigate]);
 
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
   if (!user) return null;
-  const nav =
-    user.role === "analytics" ? analyticsNav :
-    user.role === "admin" ? adminNav : clinicalNav;
+  const nav = user.role === "admin" ? adminNav : clinicalNav;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -57,23 +65,39 @@ function AppShell() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={() => setReportsOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
+            <FileText className="h-4 w-4" /> Reports
+          </button>
           <button className="relative h-9 w-9 grid place-items-center rounded-lg hover:bg-orange/20 transition-colors">
             <Bell className="h-5 w-5" />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-orange" />
           </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10">
-            <div className="h-7 w-7 rounded-full bg-coral grid place-items-center text-xs font-semibold">
-              {user.name.split(" ").map(n => n[0]).slice(0,2).join("")}
-            </div>
-            <div className="text-sm leading-tight">
-              <div className="font-medium">{user.name}</div>
-              <div className="text-[10px] uppercase tracking-wider opacity-70">{user.role}</div>
-            </div>
+          <div className="relative" ref={profileRef}>
+            <button onClick={() => setProfileOpen(o => !o)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+              <div className="h-7 w-7 rounded-full bg-coral grid place-items-center text-xs font-semibold">
+                {user.name.split(" ").map(n => n[0]).slice(0, 2).join("")}
+              </div>
+              <div className="text-sm leading-tight text-left">
+                <div className="font-medium">{user.name}</div>
+                <div className="text-[10px] uppercase tracking-wider opacity-70">{user.role}</div>
+              </div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-card text-navy shadow-soft-lg border border-border overflow-hidden z-50">
+                <Link to="/settings" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-secondary/40">
+                  <UserIcon className="h-4 w-4" /> Profile & Account
+                </Link>
+                <Link to="/settings" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-secondary/40">
+                  <Settings className="h-4 w-4" /> Settings
+                </Link>
+                <div className="border-t border-border" />
+                <button onClick={() => { logout(); navigate({ to: "/" }); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-secondary/40 text-coral">
+                  <LogOut className="h-4 w-4" /> Log out
+                </button>
+              </div>
+            )}
           </div>
-          <button onClick={() => { logout(); navigate({ to: "/" }); }}
-            className="h-9 w-9 grid place-items-center rounded-lg hover:bg-orange/20 transition-colors" title="Log out">
-            <LogOut className="h-4 w-4" />
-          </button>
         </div>
       </header>
 
@@ -102,6 +126,7 @@ function AppShell() {
           <Outlet />
         </main>
       </div>
+      {reportsOpen && <ReportsModal onClose={() => setReportsOpen(false)} />}
     </div>
   );
 }

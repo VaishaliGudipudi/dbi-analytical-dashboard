@@ -122,23 +122,7 @@ function Analytics() {
 
   const days = useMemo(() => dateRangeDays(range, custom), [range, custom]);
 
-  // Admin lands here too — show holding screen for performance analytics.
-  if (user?.role === "admin") {
-    return (
-      <div className="p-6 max-w-[1200px] mx-auto">
-        <h1 className="text-2xl font-bold text-navy mb-2">Performance Analytics</h1>
-        <p className="text-sm text-muted-foreground mb-6">Department & staff performance dashboards.</p>
-        <div className="bg-card rounded-2xl shadow-soft p-10 text-center">
-          <Building2 className="h-10 w-10 text-coral mx-auto mb-3" />
-          <h2 className="font-semibold text-navy text-lg">Coming soon</h2>
-          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            Performance analytics for Admin will live here. Operational, Clinical and
-            Quality dashboards have moved to the Analytics user.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  void user;
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
