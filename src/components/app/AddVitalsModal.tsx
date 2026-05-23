@@ -1,11 +1,71 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, HeartPulse } from "lucide-react";
 import { toast } from "sonner";
 
-export function AddVitalsModal({ onClose }: { onClose: () => void }) {
-  const [v, setV] = useState({ time: new Date().toTimeString().slice(0,5), sbp:"", dbp:"", hr:"", rr:"", spo2:"", temp:"", grbs:"", pain:"", o2:"Room Air", notes:"" });
+type VitalsDraft = {
+  time: string;
+  sbp: string;
+  dbp: string;
+  hr: string;
+  rr: string;
+  spo2: string;
+  temp: string;
+  grbs: string;
+  pain: string;
+  o2: string;
+  notes: string;
+};
+
+function buildInitialVitals(initialValues?: Partial<Record<"sbp" | "dbp" | "hr" | "rr" | "spo2" | "temp" | "grbs", string>>): VitalsDraft {
+  return {
+    time: new Date().toTimeString().slice(0, 5),
+    sbp: initialValues?.sbp ?? "",
+    dbp: initialValues?.dbp ?? "",
+    hr: initialValues?.hr ?? "",
+    rr: initialValues?.rr ?? "",
+    spo2: initialValues?.spo2 ?? "",
+    temp: initialValues?.temp ?? "",
+    grbs: initialValues?.grbs ?? "",
+    pain: "",
+    o2: "Room Air",
+    notes: "",
+  };
+}
+
+export function AddVitalsModal({
+  onClose,
+  initialValues,
+  onSave,
+}: {
+  onClose: () => void;
+  initialValues?: Partial<Record<"sbp" | "dbp" | "hr" | "rr" | "spo2" | "temp" | "grbs", string>>;
+  onSave?: (vitals: Record<string, string>) => void;
+}) {
+  const [v, setV] = useState<VitalsDraft>(() => buildInitialVitals(initialValues));
+  useEffect(() => {
+    setV((current) => ({
+      ...current,
+      ...buildInitialVitals(initialValues),
+      time: current.time,
+      pain: current.pain,
+      o2: current.o2,
+      notes: current.notes,
+    }));
+  }, [initialValues]);
   const set = (k: keyof typeof v) => (e: any) => setV({ ...v, [k]: e.target.value });
-  const save = () => { toast.success("Vitals recorded"); onClose(); };
+  const save = () => {
+    onSave?.({
+      sbp: v.sbp,
+      dbp: v.dbp,
+      hr: v.hr,
+      rr: v.rr,
+      spo2: v.spo2,
+      temp: v.temp,
+      grbs: v.grbs,
+    });
+    toast.success("Vitals recorded");
+    onClose();
+  };
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 grid place-items-center p-4" onClick={onClose}>
       <div className="bg-card w-full max-w-2xl rounded-2xl shadow-soft-lg" onClick={e=>e.stopPropagation()}>

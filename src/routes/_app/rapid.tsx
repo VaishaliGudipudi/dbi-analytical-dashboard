@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, AlertTriangle, RotateCcw } from "lucide-react";
 import { DiagnosisGrid } from "@/components/app/DiagnosisGrid";
+import { useCopilot } from "@/copilot/hooks/useCopilot";
 import { diagnoses, triageMeta } from "@/lib/mockData";
 import { FormAssistActions } from "@/components/app/FormAssistActions";
 
@@ -9,6 +10,7 @@ export const Route = createFileRoute("/_app/rapid")({ component: Rapid });
 
 function Rapid() {
   const navigate = useNavigate();
+  const copilot = useCopilot();
   const [unknown, setUnknown] = useState(false);
   const [sex, setSex] = useState<"M" | "F" | "Other">("M");
   const [diag, setDiag] = useState<string>();
@@ -51,7 +53,7 @@ function Rapid() {
             <div className="font-semibold text-navy text-sm">Smart emergency entry</div>
             <div className="text-xs text-muted-foreground">Voice fill and scan photo can populate identity, vitals, and triage notes.</div>
           </div>
-          <FormAssistActions compact />
+          <FormAssistActions compact onVoiceFill={() => void copilot.startVoiceCapture("rapid emergency entry")} />
         </div>
 
         {/* Identity */}

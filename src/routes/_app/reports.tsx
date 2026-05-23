@@ -1,18 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Download, FileText } from "lucide-react";
-import { patients, wards } from "@/lib/mockData";
+import { getEdSnapshot } from "@/lib/edApi";
+import type { Patient, Ward } from "@/lib/edTypes";
 import { exportReportDocument } from "@/lib/exports";
 
-export const Route = createFileRoute("/_app/reports")({ component: Page });
+export const Route = createFileRoute("/_app/reports")({
+  loader: async () => getEdSnapshot(),
+  component: Page,
+});
 
 type Range = "7d" | "30d" | "custom";
 
 function Page() {
+  const { patients, wards } = Route.useLoaderData();
   const [range, setRange] = useState<Range>("7d");
   const [custom, setCustom] = useState({ from: "", to: "" });
   const days = range === "7d" ? 7 : range === "30d" ? 30 : Math.max(1, daysBetween(custom.from, custom.to));
-  const report = useMemo(() => buildReport(days), [days]);
+  const report = useMemo(() => buildReport(days, patients, wards), [days, patients, wards]);
 
   const reportHtml = `
     <h1>Emergency Summary Report</h1>
@@ -53,22 +58,19 @@ function Page() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-5">
-        <section className="bg-card rounded-2xl shadow-soft p-5">
-          <h2 className="font-bold text-navy mb-3">Summary Report</h2>
-          <table className="w-full text-sm">
-            <tbody>
-              {report.rows.map(r => (
-                <tr key={r.label} className="border-t border-border">
-                  <td className="py-3 text-muted-foreground">{r.label}</td>
-                  <td className="py-3 text-right font-semibold text-navy">{r.value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-      </div>
+      <section className="bg-card rounded-2xl shadow-soft p-5">
+        <h2 className="font-bold text-navy mb-3">Summary Report</h2>
+        <table className="w-full text-sm">
+          <tbody>
+            {report.rows.map(r => (
+              <tr key={r.label} className="border-t border-border">
+                <td className="py-3 text-muted-foreground">{r.label}</td>
+                <td className="py-3 text-right font-semibold text-navy">{r.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }
@@ -92,24 +94,21 @@ function RangeFilter({ range, setRange, custom, setCustom }: any) {
   );
 }
 
-function buildReport(days: number) {
-  const totalVisits = patients.length * days + 18;
-  const admitted = Math.round(totalVisits * 0.32);
-  const discharged = Math.round(totalVisits * 0.58);
-  const criticalBeds = wards.filter(w => w.occupied / w.total >= 0.9).length;
+function buildReport(days: number, patients: Patient[], wards: Ward[]) {
+  const totalVisits = patients.length * days;
   return {
     kpis: [
-      { label: "Total visits", value: totalVisits, note: "Mock encounter rollup" },
-      { label: "Admissions", value: admitted, note: "Ward and ICU transfers" },
-      { label: "Discharges", value: discharged, note: "Completed ED visits" },
-      { label: "Critical wards", value: criticalBeds, note: "At or above 90% occupancy" },
+      { label: "Total visits", value: totalVisits, note: "Backend database rollup" },
+      { label: "Active now", value: patients.filter((p) => p.status !== "discharged").length, note: "ED + observation" },
+      { label: "Discharges", value: patients.filter((p) => p.status === "discharged").length, note: "Completed ED visits" },
+      { label: "Critical wards", value: wards.filter(w => w.occupied / w.total >= 0.9).length, note: "At or above 90% occupancy" },
     ],
     rows: [
-      { label: "Male patients", value: patients.filter(p => p.sex === "M").length * days },
-      { label: "Female patients", value: patients.filter(p => p.sex === "F").length * days },
-      { label: "Level I triage", value: patients.filter(p => p.triage === 1).length * days },
-      { label: "Level II triage", value: patients.filter(p => p.triage === 2).length * days },
-      { label: "Pending triage", value: patients.filter(p => p.triage === 0).length * days },
+      { label: "Male patients", value: patients.filter(p => p.sex === "M").length },
+      { label: "Female patients", value: patients.filter(p => p.sex === "F").length },
+      { label: "Level I triage", value: patients.filter(p => p.triage === 1).length },
+      { label: "Level II triage", value: patients.filter(p => p.triage === 2).length },
+      { label: "Pending triage", value: patients.filter(p => p.triage === 0).length },
       { label: "Average bed occupancy", value: `${Math.round(wards.reduce((s, w) => s + w.occupied / w.total, 0) / wards.length * 100)}%` },
     ],
   };

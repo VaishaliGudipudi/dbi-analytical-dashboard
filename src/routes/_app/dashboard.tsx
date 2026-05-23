@@ -1,20 +1,53 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Activity, Bed, Download, MoreHorizontal, Plus, Search, TrendingUp, Users, X, Zap } from "lucide-react";
-import { patients, triageMeta, wards, type Patient, type Triage } from "@/lib/mockData";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, Bed, Download, LayoutDashboard, MoreHorizontal, Plus, Search, TrendingUp, Users, X, Zap } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { useAuth } from "@/lib/auth";
+import { buildClinicianSnapshot, getAssignedNurse } from "@/lib/careOverview";
+import { getEdSnapshot } from "@/lib/edApi";
+import { triageMeta, type Patient, type Triage, type Ward } from "@/lib/edTypes";
 import { TriageBadge, triageBorderColor } from "@/components/app/TriageBadge";
 import { downloadCsv } from "@/lib/exports";
 
-export const Route = createFileRoute("/_app/dashboard")({ component: Dashboard });
+export const Route = createFileRoute("/_app/dashboard")({
+  loader: async () => getEdSnapshot(),
+  component: Dashboard,
+});
 
 function Dashboard() {
+  const { patients, wards } = Route.useLoaderData();
+  const { user } = useAuth();
   const [tab, setTab] = useState<"list" | "perf">("list");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [assignedToMe, setAssignedToMe] = useState(false);
+  const [nameQuery, setNameQuery] = useState("");
+  const [umrQuery, setUmrQuery] = useState("");
+  const [ageFilter, setAgeFilter] = useState("all");
+  const [showAgeFilter, setShowAgeFilter] = useState(false);
   const [drill, setDrill] = useState<string | null>(null);
-  const [selectedWard, setSelectedWard] = useState<(typeof wards)[number] | null>(null);
+  const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
   const navigate = useNavigate();
 
-const display = { 1: 16, 2: 10, 3: 2, 0: 1 };
+  useEffect(() => {
+    if (user && user.role === "analytics") {
+      navigate({ to: "/analytics" });
+    }
+  }, [navigate, user]);
+
+  if (!user || user.role === "analytics") {
+    return null;
+  }
+
+  const roleSnapshot = useMemo(() => buildClinicianSnapshot(patients, user), [patients, user]);
+  const assignedLabel = user.name;
+
+  const display: Record<Triage, number> = {
+    1: patients.filter((p) => p.triage === 1).length,
+    2: patients.filter((p) => p.triage === 2).length,
+    3: patients.filter((p) => p.triage === 3).length,
+    0: patients.filter((p) => p.triage === 0).length,
+  };
   const sexCounts = [
     { label: "Male", key: "M", value: patients.filter(p => p.sex === "M").length, color: "var(--navy)" },
     { label: "Female", key: "F", value: patients.filter(p => p.sex === "F").length, color: "var(--coral)" },
@@ -25,6 +58,26 @@ const display = { 1: 16, 2: 10, 3: 2, 0: 1 };
   const occupancyPct = Math.round((occupiedBeds / totalBeds) * 100);
   const activePatients = patients.filter(p => p.status !== "discharged").length;
   const criticalWards = wards.filter(w => w.occupied / w.total >= 0.9).length;
+  const filteredPatients = patients.filter(p => {
+    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (assignedToMe) {
+      if (user.role === "doctor" && p.physician !== user.name) return false;
+      if (user.role === "nurse" && getAssignedNurse(p) !== user.name) return false;
+    }
+    if (nameQuery && !p.name.toLowerCase().includes(nameQuery.toLowerCase())) return false;
+    if (umrQuery && !p.umr.toLowerCase().includes(umrQuery.toLowerCase())) return false;
+    if (ageFilter === "adult" && p.age < 18) return false;
+    if (ageFilter === "senior" && p.age < 60) return false;
+    if (ageFilter === "pediatric" && (p.age >= 18 || p.age === 0)) return false;
+    return true;
+  });
+  const clearFilters = () => {
+    setAssignedToMe(false);
+    setNameQuery("");
+    setUmrQuery("");
+    setAgeFilter("all");
+    setStatusFilter("all");
+  };
 
   const exportDashboard = () => downloadCsv("ed-dashboard-patients.csv", patients.map(p => ({
     UMR: p.umr,
@@ -76,9 +129,7 @@ const display = { 1: 16, 2: 10, 3: 2, 0: 1 };
       </div>
 
       {tab === "perf" ? (
-        <div className="bg-card rounded-2xl shadow-soft p-12 text-center text-muted-foreground">
-          Performance analytics coming soon - visit the Admin Analytics view.
-        </div>
+        <RolePerformancePanel snapshot={roleSnapshot} role={user.role} />
       ) : (
         <>
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
@@ -160,27 +211,51 @@ const display = { 1: 16, 2: 10, 3: 2, 0: 1 };
           </div>
 
           <div className="bg-card rounded-2xl shadow-soft p-4 mb-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" className="h-4 w-4 rounded accent-coral" />
-                <span className="text-navy">Patients assigned to me</span>
-              </label>
-              <button className="text-sm rounded-full border border-border px-3 py-1.5 text-navy hover:bg-secondary/50">Age Range</button>
-              <span className="inline-flex items-center gap-1 text-xs bg-secondary text-navy px-2.5 py-1 rounded-full">
-                Doctor: Dr. Tejaswi <X className="h-3 w-3 cursor-pointer" />
-              </span>
-              <button className="text-xs text-coral font-medium ml-auto">Clear All Filters</button>
+          <div className="flex flex-wrap items-center gap-3">
+              {user.role !== "admin" ? (
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input checked={assignedToMe} onChange={e => setAssignedToMe(e.target.checked)} type="checkbox" className="h-4 w-4 rounded accent-coral" />
+                  <span className="text-navy">Patients assigned to me</span>
+                </label>
+              ) : null}
+              <button onClick={() => setShowAgeFilter(v => !v)} className="text-sm rounded-full border border-border px-3 py-1.5 text-navy hover:bg-secondary/50">Age Range</button>
+              {assignedToMe && (
+                <span className="inline-flex items-center gap-1 text-xs bg-secondary text-navy px-2.5 py-1 rounded-full">
+                  Assigned: {assignedLabel} <X onClick={() => setAssignedToMe(false)} className="h-3 w-3 cursor-pointer" />
+                </span>
+              )}
+              {ageFilter !== "all" && (
+                <span className="inline-flex items-center gap-1 text-xs bg-secondary text-navy px-2.5 py-1 rounded-full">
+                  Age: {ageFilter} <X onClick={() => setAgeFilter("all")} className="h-3 w-3 cursor-pointer" />
+                </span>
+              )}
+              <button onClick={clearFilters} className="text-xs text-coral font-medium ml-auto">Clear All Filters</button>
             </div>
+            {showAgeFilter && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  { id: "all", label: "All Ages" },
+                  { id: "pediatric", label: "Pediatric" },
+                  { id: "adult", label: "Adult" },
+                  { id: "senior", label: "Senior" },
+                ].map(option => (
+                  <button key={option.id} onClick={() => setAgeFilter(option.id)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${ageFilter === option.id ? "bg-navy text-white" : "bg-background text-navy border border-border"}`}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
               <div className="relative">
                 <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input placeholder="Search by Name" className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-coral" />
+                <input value={nameQuery} onChange={e => setNameQuery(e.target.value)} placeholder="Search by Name" className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-coral" />
               </div>
               <div className="relative">
                 <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input placeholder="Search by UMR" className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-coral" />
+                <input value={umrQuery} onChange={e => setUmrQuery(e.target.value)} placeholder="Search by UMR" className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-coral" />
               </div>
-              <button className="rounded-lg bg-navy text-navy-foreground text-sm font-medium px-4">Open</button>
+              <button onClick={() => filteredPatients[0] && navigate({ to: "/patient/$id/workspace", params: { id: filteredPatients[0].id } })} className="rounded-lg bg-navy text-navy-foreground text-sm font-medium px-4">Open</button>
             </div>
           </div>
 
@@ -202,7 +277,7 @@ const display = { 1: 16, 2: 10, 3: 2, 0: 1 };
             <div className="grid grid-cols-[1.6fr_0.9fr_0.6fr_0.6fr_0.9fr_1fr_0.7fr] gap-4 px-5 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border bg-secondary/30">
               <div>Name</div><div>Triage</div><div>Bed</div><div>Check-in</div><div>ER Physician</div><div>Care Pathway</div><div className="text-right">Action</div>
             </div>
-            {patients.map(p => (
+            {filteredPatients.map(p => (
               <div key={p.id}
                 className="grid grid-cols-[1.6fr_0.9fr_0.6fr_0.6fr_0.9fr_1fr_0.7fr] gap-4 px-5 py-4 items-center border-b border-border last:border-0 hover:bg-secondary/30 transition-colors"
                 style={{ borderLeft: `4px solid ${triageBorderColor(p.triage)}` }}>
@@ -218,37 +293,225 @@ const display = { 1: 16, 2: 10, 3: 2, 0: 1 };
                 <div className="text-sm text-navy">{p.physician}</div>
                 <div className="text-sm">{p.pathway}</div>
                 <div className="flex justify-end gap-2">
+                  <Link to="/patient/$id/dashboard" params={{ id: p.id }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-navy hover:bg-secondary/50">
+                    <LayoutDashboard className="h-3.5 w-3.5" /> Overview
+                  </Link>
                   <Link to="/patient/$id/workspace" params={{ id: p.id }}
                     className="rounded-lg bg-coral text-coral-foreground text-xs font-semibold px-3 py-2 shadow-soft hover:opacity-95">
                     Select
                   </Link>
-                  <button className="h-8 w-8 grid place-items-center rounded-lg border border-border hover:bg-secondary">
+                  <button onClick={() => setDrill(`${p.name} details`)} className="h-8 w-8 grid place-items-center rounded-lg border border-border hover:bg-secondary">
                     <MoreHorizontal className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             ))}
+            {filteredPatients.length === 0 && (
+              <div className="p-8 text-center text-sm text-muted-foreground">No patients match your filters.</div>
+            )}
           </div>
         </>
       )}
-      {drill && <PatientDrill title={drill} onClose={() => setDrill(null)} />}
-      {selectedWard && <WardBedLayout ward={selectedWard} onClose={() => setSelectedWard(null)} />}
+      {drill && <PatientDrill title={drill} patients={patients} onClose={() => setDrill(null)} />}
+      {selectedWard && <WardBedLayout ward={selectedWard} patients={patients} onClose={() => setSelectedWard(null)} />}
     </div>
   );
 }
 
-function buildWardBeds(ward: (typeof wards)[number]) {
+function RolePerformancePanel({
+  snapshot,
+  role,
+}: {
+  snapshot: ReturnType<typeof buildClinicianSnapshot>;
+  role: "doctor" | "nurse" | "admin";
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Performance Analytics</div>
+            <h2 className="mt-1 text-xl font-bold text-navy">{snapshot.title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{snapshot.subtitle}</p>
+          </div>
+          <div className="rounded-2xl bg-secondary/35 px-4 py-3 text-right">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Assigned census</div>
+            <div className="mt-1 text-2xl font-bold text-navy">{snapshot.assignedPatients.length}</div>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {snapshot.metrics.map((metric) => (
+            <PerformanceMetricCard key={metric.label} metric={metric} />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+          <div className="mb-4 text-lg font-bold text-navy">
+            {role === "nurse" ? "Assigned nursing workload" : "Assigned patient mix"}
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+            <div className="rounded-2xl border border-border bg-white p-4">
+              <div className="mb-2 text-sm font-bold text-navy">Status split</div>
+              <ChartContainer
+                config={{
+                  ED: { label: "ED", color: "var(--navy)" },
+                  Observation: { label: "Observation", color: "var(--amber-emerg)" },
+                  Discharged: { label: "Discharged", color: "var(--coral)" },
+                }}
+                className="h-[240px] w-full"
+              >
+                <PieChart>
+                  <Pie data={snapshot.statusMix.map((item) => ({ ...item, fill: item.color }))} dataKey="value" nameKey="label" innerRadius={42} outerRadius={74} paddingAngle={4} />
+                  <ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
+                  <ChartLegend content={<ChartLegendContent nameKey="label" />} />
+                </PieChart>
+              </ChartContainer>
+            </div>
+            <div className="rounded-2xl border border-border bg-white p-4">
+              <div className="mb-2 text-sm font-bold text-navy">Pathway distribution</div>
+              <ChartContainer
+                config={{
+                  value: { label: role === "nurse" ? "Assigned patients" : "Patient count", color: "var(--coral)" },
+                }}
+                className="h-[240px] w-full"
+              >
+                <BarChart data={snapshot.pathwayMix.slice(0, 6)} layout="vertical" margin={{ top: 8, right: 12, bottom: 8, left: 12 }}>
+                  <CartesianGrid horizontal={false} />
+                  <XAxis type="number" tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={110} />
+                  <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
+                  <Bar dataKey="value" fill="var(--color-value)" radius={[0, 10, 10, 0]} />
+                </BarChart>
+              </ChartContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+          <div className="mb-4 text-lg font-bold text-navy">Immediate attention</div>
+          <div className="space-y-3">
+            {snapshot.attentionList.map((item) => (
+              <div key={item.patientId} className={`rounded-2xl border p-4 ${item.tone === "critical" ? "border-red-200 bg-red-50/80" : item.tone === "warning" ? "border-amber-200 bg-amber-50" : "border-border bg-white"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-bold text-navy">{item.patientName}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{item.bed}</div>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.tone === "critical" ? "bg-red-100 text-red-700" : item.tone === "warning" ? "bg-amber-100 text-amber-800" : "bg-mint text-navy"}`}>
+                    {item.tone === "critical" ? "Urgent" : item.tone === "warning" ? "Watch" : "Stable"}
+                  </span>
+                </div>
+                <div className="mt-2 text-sm text-navy">{item.reason}</div>
+                <div className="mt-3 flex gap-2">
+                  <Link to="/patient/$id/dashboard" params={{ id: item.patientId }} className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-navy hover:bg-secondary/40">
+                    Overview
+                  </Link>
+                  <Link to="/patient/$id/workspace" params={{ id: item.patientId }} className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:opacity-95">
+                    Open chart
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-lg font-bold text-navy">Assigned patient snapshots</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {role === "nurse" ? "Bedside action view for your current assignment." : "At-a-glance clinical state for each assigned patient."}
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {snapshot.assignedPatients.map((patientOverview) => (
+            <PatientSnapshotCard key={patientOverview.patient.id} overview={patientOverview} role={role} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PerformanceMetricCard({
+  metric,
+}: {
+  metric: { label: string; value: string; note: string; tone?: "critical" | "steady" | "attention" };
+}) {
+  const className =
+    metric.tone === "critical"
+      ? "border-red-200 bg-red-50/80"
+      : metric.tone === "attention"
+        ? "border-amber-200 bg-amber-50"
+        : "border-border bg-white";
+  return (
+    <div className={`rounded-2xl border p-4 ${className}`}>
+      <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{metric.label}</div>
+      <div className={`mt-2 text-2xl font-bold ${metric.tone === "critical" ? "text-red-700" : "text-navy"}`}>{metric.value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{metric.note}</div>
+    </div>
+  );
+}
+
+function PatientSnapshotCard({
+  overview,
+  role,
+}: {
+  overview: ReturnType<typeof buildClinicianSnapshot>["assignedPatients"][number];
+  role: "doctor" | "nurse" | "admin";
+}) {
+  const latestVitals = overview.vitalsTimeline[overview.vitalsTimeline.length - 1];
+  return (
+    <div className="rounded-3xl border border-border bg-white p-4 shadow-soft">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-base font-bold text-navy">{overview.patient.name}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {overview.patient.umr} • {overview.patient.bed} • {overview.patient.pathway}
+          </div>
+        </div>
+        <span className="rounded-full px-2.5 py-1 text-[10px] font-bold text-white" style={{ background: triageMeta[overview.patient.triage].color }}>
+          {overview.identity.triageLabel}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-secondary/25 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Latest vitals</div>
+          <div className="mt-2 text-sm font-bold text-navy">
+            {latestVitals.sbp}/{latestVitals.dbp} • HR {latestVitals.hr}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">SpO₂ {latestVitals.spo2}% • MEWS {latestVitals.mews}</div>
+        </div>
+        <div className="rounded-2xl bg-secondary/25 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{role === "nurse" ? "Next nursing action" : "Disposition"}</div>
+          <div className="mt-2 text-sm font-bold text-navy">{role === "nurse" ? overview.nurseTasks[0]?.title ?? "Continue monitoring" : overview.disposition.current}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{role === "nurse" ? `Due ${overview.nurseTasks[0]?.due ?? "as scheduled"}` : overview.disposition.estimated}</div>
+        </div>
+      </div>
+      <div className="mt-4 text-sm text-navy">{role === "nurse" ? overview.nurseTasks[0]?.details ?? "No outstanding tasks" : overview.assessment.workingDiagnosis}</div>
+      <div className="mt-4 flex gap-2">
+        <Link to="/patient/$id/dashboard" params={{ id: overview.patient.id }} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold text-navy hover:bg-secondary/40">
+          <LayoutDashboard className="h-3.5 w-3.5" /> Overview
+        </Link>
+        <Link to="/patient/$id/workspace" params={{ id: overview.patient.id }} className="rounded-full bg-coral px-3 py-2 text-xs font-semibold text-white hover:opacity-95">
+          Open chart
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function buildWardBeds(ward: Ward, patients: Patient[]) {
   const assigned = patients.filter(patient => patientBelongsToWard(patient, ward.name));
-  const syntheticTriage: Triage[] = [1, 2, 2, 3, 1, 2, 3, 0, 2, 1, 3, 2, 1, 2, 3, 0, 2, 1, 3, 2];
-  const syntheticSex: Patient["sex"][] = ["M", "F", "M", "F", "Other", "M", "F", "M", "F", "M"];
 
   return Array.from({ length: ward.total }, (_, index) => {
     const bedNumber = index + 1;
-    const patient = assigned[index] ?? (
-      index < ward.occupied
-        ? makePlaceholderPatient(ward.name, bedNumber, syntheticTriage[index % syntheticTriage.length], syntheticSex[index % syntheticSex.length])
-        : null
-    );
+    const patient = assigned[index] ?? null;
 
     return {
       bed: `${wardPrefix(ward.name)}-${String(bedNumber).padStart(2, "0")}`,
@@ -273,26 +536,11 @@ function wardPrefix(wardName: string) {
   return "PED";
 }
 
-function makePlaceholderPatient(wardName: string, bedNumber: number, triage: Triage, sex: Patient["sex"]): Patient {
-  return {
-    id: `${wardPrefix(wardName).toLowerCase()}-${bedNumber}`,
-    name: "Assigned patient",
-    age: 0,
-    sex,
-    umr: "Pending",
-    triage,
-    bed: `${wardPrefix(wardName)}-${String(bedNumber).padStart(2, "0")}`,
-    checkIn: "--",
-    physician: "--",
-    pathway: "Bed assigned",
-    department: wardName,
-    status: "ed",
-  };
-}
+type WardBed = { bed: string; patient: Patient | null };
 
-function WardBedLayout({ ward, onClose }: { ward: (typeof wards)[number]; onClose: () => void }) {
-  const [selectedBed, setSelectedBed] = useState<ReturnType<typeof buildWardBeds>[number] | null>(null);
-  const beds = buildWardBeds(ward);
+function WardBedLayout({ ward, patients, onClose }: { ward: Ward; patients: Patient[]; onClose: () => void }) {
+  const [selectedBed, setSelectedBed] = useState<WardBed | null>(null);
+  const beds = buildWardBeds(ward, patients);
   const occupancyPct = Math.round((ward.occupied / ward.total) * 100);
 
   return (
@@ -332,8 +580,6 @@ function WardBedLayout({ ward, onClose }: { ward: (typeof wards)[number]; onClos
     </div>
   );
 }
-
-type WardBed = ReturnType<typeof buildWardBeds>[number];
 
 function WardFloorPlan({ beds, onSelectBed }: { beds: WardBed[]; onSelectBed: (bed: WardBed) => void }) {
   const topBeds = beds.slice(0, 5);
@@ -505,7 +751,7 @@ function BedShape({ patient }: { patient: Patient | null }) {
   );
 }
 
-function BedDetails({ bed, onClose }: { bed: ReturnType<typeof buildWardBeds>[number]; onClose: () => void }) {
+function BedDetails({ bed, onClose }: { bed: WardBed; onClose: () => void }) {
   return (
     <div className="absolute bottom-5 right-5 w-80 rounded-xl border border-border bg-card p-4 shadow-soft-lg">
       <div className="flex items-start justify-between gap-3">
@@ -612,7 +858,7 @@ function GraphCard({ title, children, onClick }: { title: string; children: Reac
   );
 }
 
-function PatientDrill({ title, onClose }: { title: string; onClose: () => void }) {
+function PatientDrill({ title, patients, onClose }: { title: string; patients: Patient[]; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-background rounded-2xl shadow-soft-lg w-full max-w-4xl max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>

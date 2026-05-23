@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 import { X, Download, FileText } from "lucide-react";
-import { patients, wards } from "@/lib/mockData";
+import type { Patient, Ward } from "@/lib/edTypes";
 import { exportReportDocument } from "@/lib/exports";
 
 type Range = "7d" | "30d" | "custom";
 
-export function ReportsModal({ onClose }: { onClose: () => void }) {
+export function ReportsModal({ patients, wards, onClose }: { patients: Patient[]; wards: Ward[]; onClose: () => void }) {
   const [range, setRange] = useState<Range>("7d");
   const [custom, setCustom] = useState({ from: "", to: "" });
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 14;
-  const report = useMemo(() => buildReport(days), [days]);
+  const report = useMemo(() => buildReport(days, patients, wards), [days, patients, wards]);
 
   const reportHtml = `
     <h1>Emergency Summary Report</h1>
@@ -81,20 +81,20 @@ export function ReportsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function buildReport(days: number) {
-  const totalVisits = patients.length * days + 18;
+function buildReport(days: number, patients: Patient[], wards: Ward[]) {
+  const totalVisits = patients.length * days;
   return {
     kpis: [
-      { label: "Total visits", value: totalVisits, note: "Rollup" },
-      { label: "Admissions", value: Math.round(totalVisits*0.32), note: "Ward/ICU" },
-      { label: "Discharges", value: Math.round(totalVisits*0.58), note: "Completed" },
-      { label: "Critical wards", value: wards.filter(w=>w.occupied/w.total>=0.9).length, note: "≥90% occupancy" },
+      { label: "Total visits", value: totalVisits, note: "Seeded database rollup" },
+      { label: "Active now", value: patients.filter((p) => p.status !== "discharged").length, note: "ED + observation" },
+      { label: "Discharges", value: patients.filter((p) => p.status === "discharged").length, note: "Completed" },
+      { label: "Critical wards", value: wards.filter(w=>w.occupied/w.total>=0.9).length, note: ">=90% occupancy" },
     ],
     rows: [
-      { label: "Male patients", value: patients.filter(p=>p.sex==="M").length*days },
-      { label: "Female patients", value: patients.filter(p=>p.sex==="F").length*days },
-      { label: "Level I triage", value: patients.filter(p=>p.triage===1).length*days },
-      { label: "Level II triage", value: patients.filter(p=>p.triage===2).length*days },
+      { label: "Male patients", value: patients.filter(p=>p.sex==="M").length },
+      { label: "Female patients", value: patients.filter(p=>p.sex==="F").length },
+      { label: "Level I triage", value: patients.filter(p=>p.triage===1).length },
+      { label: "Level II triage", value: patients.filter(p=>p.triage===2).length },
       { label: "Avg bed occupancy", value: `${Math.round(wards.reduce((s,w)=>s+w.occupied/w.total,0)/wards.length*100)}%` },
     ],
   };

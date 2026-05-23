@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistant Core Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4efe7;
+        --panel: #fffaf3;
+        --ink: #1f2937;
+        --muted: #5f6b7a;
+        --accent: #0f766e;
+        --accent-strong: #115e59;
+        --border: #d8cfc2;
+        --shadow: 0 24px 60px rgba(31, 41, 55, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 34%),
+          linear-gradient(135deg, #f7f1e8 0%, #efe5d6 100%);
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .card {
+        width: min(720px, 100%);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        padding: 32px;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+        margin-top: 28px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+        color: white;
+        font-size: 1rem;
+        font-weight: 700;
+        padding: 16px 22px;
+        cursor: pointer;
+        transition: transform 120ms ease, opacity 120ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+        transform: none;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.6);
+      }
+
+      .label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+
+      .value {
+        min-height: 28px;
+        font-size: 1.05rem;
+      }
+
+      .status {
+        font-weight: 600;
+        color: var(--accent-strong);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Assistant Core Demo</h1>
+      <p>
+        This is a temporary browser frontend for Phase 1. Click the button, speak into your
+        microphone, and the local Python assistant will transcribe and repeat your words.
+      </p>
+
+      <section class="stack">
+        <button id="startButton">Start Voice Test</button>
+        <button id="permissionButton" type="button">Ask Microphone Permission</button>
+
+        <div class="panel">
+          <span class="label">Status</span>
+          <div id="status" class="value status">Idle</div>
+        </div>
+
+        <div class="panel">
+          <span class="label">Transcript</span>
+          <div id="transcript" class="value">Waiting for a test run.</div>
+        </div>
+
+        <div class="panel">
+          <span class="label">Assistant Reply</span>
+          <div id="reply" class="value">The assistant reply will appear here.</div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const startButton = document.getElementById("startButton");
+      const permissionButton = document.getElementById("permissionButton");
+      const statusElement = document.getElementById("status");
+      const transcriptElement = document.getElementById("transcript");
+      const replyElement = document.getElementById("reply");
+      let activeJobId = null;
+      let mediaStream = null;
+
+      function speakReply(text) {
+        if (!("speechSynthesis" in window) || !text) {
+          return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      }
+
+      async function ensureMicrophonePermission() {
+        if (mediaStream) {
+          return mediaStream;
+        }
+
+        statusElement.textContent = "Requesting microphone permission from the browser...";
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        statusElement.textContent = "Microphone permission granted.";
+        return mediaStream;
+      }
+
+      function stopTracks(stream) {
+        if (!stream) {
+          return;
+        }
+
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      function recordForFiveSeconds(stream) {
+        return new Promise((resolve, reject) => {
+          const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+            ? "audio/webm"
+            : "";
+
+          const recorder = mimeType
+            ? new MediaRecorder(stream, { mimeType })
+            : new MediaRecorder(stream);
+
+          const chunks = [];
+          let secondsLeft = 5;
+
+          statusElement.textContent = "Recording starts now.";
+          transcriptElement.textContent = "Listening...";
+          replyElement.textContent = "Recording your voice...";
+
+          recorder.addEventListener("dataavailable", (event) => {
+            if (event.data.size > 0) {
+              chunks.push(event.data);
+            }
+          });
+
+          recorder.addEventListener("stop", () => {
+            const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+            resolve(blob);
+          });
+
+          recorder.addEventListener("error", (event) => {
+            reject(event.error || new Error("Browser recording failed."));
+          });
+
+          recorder.start();
+
+          const interval = setInterval(() => {
+            secondsLeft -= 1;
+            if (secondsLeft > 0) {
+              statusElement.textContent = `Recording... ${secondsLeft} second(s) left`;
+            }
+          }, 1000);
+
+          setTimeout(() => {
+            clearInterval(interval);
+            recorder.stop();
+          }, 5000);
+        });
+      }
+
+      function updateUiFromJob(data) {
+        const latestMessage = data.history && data.history.length
+          ? data.history[data.history.length - 1]
+          : "Working...";
+
+        statusElement.textContent = data.done
+          ? data.error
+            ? "Error"
+            : data.success
+              ? "Success"
+              : "Completed with no speech recognized."
+          : latestMessage;
+
+        transcriptElement.textContent = data.transcript || "Waiting for transcript...";
+        replyElement.textContent = data.error || data.reply || "Waiting for assistant reply...";
+      }
+
+      async function pollJob(jobId) {
+        while (activeJobId === jobId) {
+          const response = await fetch(`/api/voice-cycle/status/${jobId}`);
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Could not read voice job status.");
+          }
+
+          updateUiFromJob(data);
+
+          if (data.done) {
+            startButton.disabled = false;
+            activeJobId = null;
+            return;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      async function runVoiceCycle() {
+        startButton.disabled = true;
+        permissionButton.disabled = true;
+        statusElement.textContent = "Starting voice test...";
+        transcriptElement.textContent = "Waiting for transcript...";
+        replyElement.textContent = "Waiting for assistant reply...";
+
+        try {
+          const stream = await ensureMicrophonePermission();
+          const audioBlob = await recordForFiveSeconds(stream);
+          stopTracks(stream);
+          mediaStream = null;
+
+          statusElement.textContent = "Uploading audio to the local assistant...";
+
+          const response = await fetch("/api/browser-voice-cycle", {
+            method: "POST",
+            headers: {
+              "Content-Type": audioBlob.type || "audio/webm"
+            },
+            body: audioBlob
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "The voice test failed.");
+          }
+
+          statusElement.textContent = data.success
+            ? "Success"
+            : "Completed, but no speech was recognized.";
+          transcriptElement.textContent = data.transcript || "No text recognized.";
+          replyElement.textContent = data.reply || "No reply returned.";
+          speakReply(data.reply || "");
+        } catch (error) {
+          activeJobId = null;
+          stopTracks(mediaStream);
+          mediaStream = null;
+          statusElement.textContent = "Error";
+          transcriptElement.textContent = "No transcript available.";
+          replyElement.textContent = error.message;
+          startButton.disabled = false;
+          permissionButton.disabled = false;
+          return;
+        }
+
+        startButton.disabled = false;
+        permissionButton.disabled = false;
+      }
+
+      permissionButton.addEventListener("click", async () => {
+        permissionButton.disabled = true;
+        try {
+          const stream = await ensureMicrophonePermission();
+          stopTracks(stream);
+          mediaStream = null;
+          replyElement.textContent = "Browser microphone access is allowed.";
+        } catch (error) {
+          statusElement.textContent = "Permission denied or unavailable.";
+          replyElement.textContent = error.message;
+        } finally {
+          permissionButton.disabled = false;
+        }
+      });
+
+      startButton.addEventListener("click", runVoiceCycle);
+    </script>
+  </body>
+</html>

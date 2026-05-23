@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { AlertTriangle, Briefcase, HeartPulse, Stethoscope, X } from "lucide-react";
+import { AlertTriangle, BarChart3, Briefcase, HeartPulse, Stethoscope, X } from "lucide-react";
 import { useAuth, type Role } from "@/lib/auth";
 import logo from "@/assets/discover_bio_logo.svg";
 
@@ -9,7 +9,8 @@ export const Route = createFileRoute("/")({ component: Login });
 const roles: { id: Role; label: string; desc: string; Icon: any }[] = [
   { id: "doctor", label: "Doctor", desc: "Patient care & clinical workflow", Icon: Stethoscope },
   { id: "nurse", label: "Nurse", desc: "Triage & vitals documentation", Icon: HeartPulse },
-  { id: "admin", label: "Admin", desc: "Department & performance reports", Icon: Briefcase },
+  { id: "admin", label: "Admin", desc: "Staff, masters, and system settings", Icon: Briefcase },
+  { id: "analytics", label: "Analytics", desc: "Dashboard, reports, and performance review", Icon: BarChart3 },
 ];
 
 function Login() {
@@ -24,9 +25,10 @@ function Login() {
     e.preventDefault();
     const name =
       role === "doctor" ? "Dr. Tejaswi" :
-      role === "nurse" ? "Nurse Anita" : "Admin Patel";
+      role === "nurse" ? "Nurse Anita" :
+      role === "admin" ? "Admin Patel" : "Analytics Rhea";
     login({ name, email, role });
-    navigate({ to: "/dashboard" });
+    navigate({ to: role === "analytics" ? "/analytics" : "/patients" });
   };
 
   return (
@@ -41,7 +43,7 @@ function Login() {
             <p className="text-sm" style={{ color: "oklch(0.85 0.02 80)" }}>Emergency Analytics Platform</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-1 gap-4 mb-5 md:grid-cols-2 xl:grid-cols-4">
             {roles.map(({ id, label, desc, Icon }) => {
               const active = role === id;
               return (

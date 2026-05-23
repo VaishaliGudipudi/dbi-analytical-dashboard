@@ -1,4 +1,4 @@
-import { triageMeta } from "@/lib/mockData";
+import { triageMeta } from "@/lib/edTypes";
 
 export function TriageBadge({ level, size = "md" }: { level: 0 | 1 | 2 | 3; size?: "sm" | "md" | "lg" }) {
   const m = triageMeta[level];
