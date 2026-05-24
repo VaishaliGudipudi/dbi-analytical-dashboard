@@ -17,6 +17,13 @@ import {
   YAxis,
 } from "recharts";
 import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
   Activity,
   AlertTriangle,
   Bed,
@@ -39,9 +46,16 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { getEdSnapshot } from "@/lib/edApi";
 import { patients as roster, wards } from "@/lib/mockData";
 
-export const Route = createFileRoute("/_app/analytics")({ component: Analytics });
+export const Route = createFileRoute("/_app/analytics")({
+  loader: async () => {
+    const snapshot = await getEdSnapshot();
+    return { patients: snapshot.patients };
+  },
+  component: Analytics,
+});
 
 type GroupId = "operational" | "clinical" | "quality";
 type RangeId = "7d" | "30d" | "90d" | "custom";
@@ -188,12 +202,15 @@ const protocolSegmentKeys = ["Infusions", "Investigations", "Medications", "Proc
 const protocolSegmentColors = [COLORS.blue, COLORS.green, COLORS.coral, COLORS.amber];
 
 function Analytics() {
+  const { patients } = Route.useLoaderData();
   const [tab, setTab] = useState<GroupId>("operational");
   const [range, setRange] = useState<RangeId>("30d");
   const [custom, setCustom] = useState({ from: "", to: "" });
   const [activeFilter, setActiveFilter] = useState<DashboardFilter | null>(null);
   const [drillMetric, setDrillMetric] = useState<Metric | null>(null);
   const days = useMemo(() => dateRangeDays(range, custom), [range, custom]);
+  const filteredPatients = useMemo(() => filterPatients(patients, activeFilter), [patients, activeFilter]);
+  const filterRatio = activeFilter ? filterImpactMultiplier(filteredPatients.length, patients.length) : 1;
   const applyFilter = (filter: DashboardFilter) => {
     setActiveFilter(current => isSameFilter(current, filter) ? null : filter);
   };
@@ -229,28 +246,32 @@ function Analytics() {
       </div>
 
       {tab === "operational" && (
-        <Operational days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
+        <Operational patients={patients} filterRatio={filterRatio} days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
       )}
       {tab === "clinical" && (
-        <Clinical days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
+        <Clinical patients={patients} filterRatio={filterRatio} days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
       )}
       {tab === "quality" && (
-        <Quality days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
+        <Quality filterRatio={filterRatio} days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
       )}
 
       {drillMetric && (
-        <MetricDrillPanel metric={drillMetric} days={days} activeFilter={activeFilter} onClose={() => setDrillMetric(null)} />
+        <MetricDrillPanel patients={patients} filterRatio={filterRatio} metric={drillMetric} days={days} activeFilter={activeFilter} onClose={() => setDrillMetric(null)} />
       )}
     </div>
   );
 }
 
 function Operational({
+  patients,
+  filterRatio,
   days,
   activeFilter,
   applyFilter,
   onDrill,
 }: {
+  patients: typeof roster;
+  filterRatio: number;
   days: string[];
   activeFilter: DashboardFilter | null;
   applyFilter: (filter: DashboardFilter) => void;
@@ -258,7 +279,7 @@ function Operational({
 }) {
   const [footfallView, setFootfallView] = useState<FootfallView>("hour");
   const [protocolView, setProtocolView] = useState<ProtocolView>("day");
-  const multiplier = filterMultiplier(activeFilter);
+  const multiplier = filterRatio;
   const existingMetricIds = ["iaTat", "erTat", "bedOcc", "ppd", "mlcCases"];
   const suggestedMetricIds = ["avgLos", "dispositionTat", "ppn"];
   const existingMetrics = existingMetricIds.map(id => METRICS.find(m => m.id === id)!);
@@ -266,9 +287,10 @@ function Operational({
   const footfall = buildFootfall(days, multiplier);
   const footfallRollup = rollupFootfall(footfallView, footfall);
   const highestFootfall = Math.max(...footfallRollup.map(row => row.patients));
-  const triageDist = applyFilterToPie(windowSafeTriageDist(), activeFilter);
-  const disposition = applyFilterToPie(dispositionDist, activeFilter);
-  const triageVsDispo = applyFilterToRows(triageVsDispoBase, activeFilter);
+  const sectionPatients = filterPatients(patients, activeFilter);
+  const triageDist = buildTriagePieRows(sectionPatients);
+  const disposition = buildDispositionPieRows(sectionPatients);
+  const triageVsDispo = buildTriageDispositionRows(sectionPatients);
   const protocolRows = buildProtocolStackRows(protocolView, multiplier);
   const stageData = [
     { name: "Registration", value: scale(11, multiplier), color: COLORS.green },
@@ -283,7 +305,7 @@ function Operational({
       <Section title="Operational KPIs">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {existingMetrics.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
           ))}
         </div>
       </Section>
@@ -308,7 +330,10 @@ function Operational({
             xKey="name"
             keys={["Discharged", "Admitted", "Referred", "LAMA", "Expired"]}
             activeFilter={activeFilter}
-            onSelect={label => applyFilter({ source: "Triage x Disposition", label })}
+            onSelect={(label, payload) => applyFilter({
+              source: isDispositionFilterLabel(label) ? "Disposition" : "Triage",
+              label: isDispositionFilterLabel(label) ? label : String(payload?.name ?? label),
+            })}
           />
         </div>
       </Section>
@@ -341,7 +366,7 @@ function Operational({
       <Section title="Arrival and Stage Time">
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
           {suggestedMetrics.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
           ))}
         </div>
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
@@ -374,11 +399,14 @@ function Operational({
           />
           <StackedBarCard
             title="Age Group with Gender Distribution"
-            data={applyFilterToRows(ageGenderBase, activeFilter)}
+            data={buildAgeGenderRows(sectionPatients, multiplier)}
             xKey="name"
             keys={["Male", "Female"]}
             activeFilter={activeFilter}
-            onSelect={label => applyFilter({ source: "Age / Gender", label })}
+            onSelect={(label, payload) => applyFilter({
+              source: isGenderFilterLabel(label) ? "Gender" : "Age Group",
+              label: isGenderFilterLabel(label) ? label : String(payload?.name ?? label),
+            })}
           />
         </div>
       </Section>
@@ -411,29 +439,34 @@ function Operational({
 }
 
 function Clinical({
+  patients,
+  filterRatio,
   days,
   activeFilter,
   applyFilter,
   onDrill,
 }: {
+  patients: typeof roster;
+  filterRatio: number;
   days: string[];
   activeFilter: DashboardFilter | null;
   applyFilter: (filter: DashboardFilter) => void;
   onDrill: (metric: Metric) => void;
 }) {
-  const multiplier = filterMultiplier(activeFilter);
+  const multiplier = filterRatio;
   const kpis = ["carePlan", "doorThromb", "doorBalloon", "investigationTat"].map(id => METRICS.find(m => m.id === id)!);
   const mewsTrend = buildMewsTrend(days, multiplier);
+  const sectionPatients = filterPatients(patients, activeFilter);
 
   return (
     <div className="space-y-5">
       <Section title="Clinical Recognition and Pathway Activation">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {kpis.slice(0, 3).map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
           ))}
           <MewsCard data={mewsTrend} onClick={() => onDrill({ id: "mews", label: "MEWS", group: "clinical", kind: "score", baseline: 0, target: "Risk trajectory", tone: "amber", Icon: HeartPulse, fmt: v => v.toFixed(1) })} />
-          <MetricCard metric={kpis[3]} days={days} activeFilter={activeFilter} onDrill={onDrill} />
+          <MetricCard metric={kpis[3]} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
         </div>
       </Section>
 
@@ -441,7 +474,7 @@ function Clinical({
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
           <ChartCard title="ER Cases by Care Pathway" active={Boolean(activeFilter)}>
             <ResponsiveContainer width="100%" height={270}>
-              <BarChart data={applyFilterToRows(pathwayCasesBase, activeFilter)} margin={{ top: 20, right: 24, left: 8, bottom: 52 }} onClick={event => selectFromChart(event, "Care Pathway", applyFilter)}>
+              <BarChart data={buildPathwayCaseRows(sectionPatients, multiplier)} margin={{ top: 20, right: 24, left: 8, bottom: 52 }} onClick={event => selectFromChart(event, "Care Pathway", applyFilter)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" interval={0} angle={-22} textAnchor="end" tick={axisTick} height={66} />
                 <YAxis tick={axisTick} label={axisLabel("Cases")} />
@@ -473,11 +506,13 @@ function Clinical({
 }
 
 function Quality({
+  filterRatio,
   days,
   activeFilter,
   applyFilter,
   onDrill,
 }: {
+  filterRatio: number;
   days: string[];
   activeFilter: DashboardFilter | null;
   applyFilter: (filter: DashboardFilter) => void;
@@ -486,7 +521,7 @@ function Quality({
   const [referralView, setReferralView] = useState<ReferralView>("reason");
   const [lamaView, setLamaView] = useState<LamaView>("reason");
   const [complaintView, setComplaintView] = useState<ComplaintView>("hour");
-  const multiplier = filterMultiplier(activeFilter);
+  const multiplier = filterRatio;
   const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"].map(id => METRICS.find(m => m.id === id)!);
   const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"].map(id => METRICS.find(m => m.id === id)!);
   const referralRows = buildReferralRows(referralView, multiplier);
@@ -498,7 +533,7 @@ function Quality({
       <Section title="Safety Outcomes">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {outcome.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
           ))}
         </div>
       </Section>
@@ -506,7 +541,7 @@ function Quality({
       <Section title="Experience, Readiness, and Bed Turnover">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {experience.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
           ))}
         </div>
       </Section>
@@ -641,16 +676,19 @@ function MetricCard({
   metric,
   days,
   activeFilter,
+  filterRatio,
   onDrill,
 }: {
   metric: Metric;
   days: string[];
   activeFilter: DashboardFilter | null;
+  filterRatio: number;
   onDrill: (metric: Metric) => void;
 }) {
-  const series = useMemo(() => buildSeries(metric, days, filterMultiplier(activeFilter)), [metric, days, activeFilter]);
+  const series = useMemo(() => buildSeries(metric, days, filterRatio), [metric, days, filterRatio]);
   const avg = series.reduce((sum, item) => sum + item.value, 0) / Math.max(series.length, 1);
   const Icon = metric.Icon;
+
   return (
     <button
       onClick={() => onDrill(metric)}
@@ -785,12 +823,16 @@ function StackedBarCard({
   xKey: string;
   keys: string[];
   activeFilter: DashboardFilter | null;
-  onSelect: (label: string) => void;
+  onSelect: (label: string, payload?: Record<string, string | number>) => void;
 }) {
   return (
     <ChartCard title={title} active={Boolean(activeFilter)}>
       <ResponsiveContainer width="100%" height={265}>
-        <BarChart data={data} margin={{ top: 18, right: 18, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, title, (_, payload) => onSelect(String(payload?.name ?? payload?.[xKey] ?? title)))}>
+        <BarChart
+          data={data}
+          margin={{ top: 18, right: 18, left: 8, bottom: 48 }}
+          onClick={event => selectFromChart(event, title, (_, payload, seriesKey) => onSelect(seriesKey ?? String(payload?.name ?? payload?.[xKey] ?? title), payload))}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey={xKey} interval={0} angle={-16} textAnchor="end" tick={axisTick} height={58} />
           <YAxis tick={axisTick} label={axisLabel("Patients")} />
@@ -1005,18 +1047,26 @@ function BedOccupancyTable({ activeFilter }: { activeFilter: DashboardFilter | n
 }
 
 function MetricDrillPanel({
+  patients,
+  filterRatio,
   metric,
   days,
   activeFilter,
   onClose,
 }: {
+  patients: typeof roster;
+  filterRatio: number;
   metric: Metric;
   days: string[];
   activeFilter: DashboardFilter | null;
   onClose: () => void;
 }) {
   const [mlcView, setMlcView] = useState<MlcView>("day");
-  const multiplier = filterMultiplier(activeFilter);
+  const multiplier = filterRatio;
+  const providerRows = metric.id === "ppd" ? buildProviderDispositionRows(filterPatients(patients, activeFilter)) : [];
+  const losTimeline = metric.id === "avgLos"
+    ? buildSeries(metric, days, multiplier).map(row => ({ name: fmtShort(row.date), Value: Number(row.value.toFixed(1)) }))
+    : [];
   const series = metric.id === "mews"
     ? buildMewsTrend(days, multiplier).map((row, index) => ({ name: fmtShort(days[index]), Admission: row.admission, Discharge: row.discharge }))
     : metric.id === "mlcCases"
@@ -1024,7 +1074,7 @@ function MetricDrillPanel({
       : metric.id === "avgLos"
         ? buildLosByPathway(multiplier)
         : buildSeries(metric, days, multiplier).map(row => ({ name: fmtShort(row.date), Value: metric.kind === "rate" ? row.value * 100 : row.value }));
-  const patients = patientsFor(metric.id, activeFilter);
+  const patientRows = patientsFor(metric.id, patients, activeFilter);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
@@ -1063,8 +1113,43 @@ function MetricDrillPanel({
             </div>
           )}
           <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
-            <ResponsiveContainer width="100%" height={metric.id === "mews" ? 360 : 300}>
-              {metric.id === "avgLos" ? (
+            {metric.id === "mews" ? (
+              <ChartContainer
+                config={{
+                  Admission: { label: "Admission MEWS", color: COLORS.coral },
+                  Discharge: { label: "Discharge MEWS", color: COLORS.green },
+                }}
+                className="h-[360px] w-full"
+              >
+                <LineChart data={series} margin={{ top: 26, right: 34, left: 10, bottom: 50 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" interval="preserveStartEnd" angle={-18} textAnchor="end" tick={axisTick} height={58} />
+                  <YAxis tick={axisTick} domain={[0, 6]} label={axisLabel("MEWS Score")} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="Admission"
+                    stroke="var(--color-Admission)"
+                    strokeWidth={3.25}
+                    dot={{ r: 4, fill: "white", stroke: "var(--color-Admission)", strokeWidth: 2 }}
+                    activeDot={{ r: 7, fill: COLORS.amber, stroke: "white", strokeWidth: 2 }}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="Discharge"
+                    stroke="var(--color-Discharge)"
+                    strokeWidth={3.25}
+                    dot={{ r: 4, fill: "white", stroke: "var(--color-Discharge)", strokeWidth: 2 }}
+                    activeDot={{ r: 7, fill: COLORS.amber, stroke: "white", strokeWidth: 2 }}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ChartContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height={metric.id === "mews" ? 360 : 300}>
+                {metric.id === "avgLos" ? (
                 <BarChart data={series} margin={{ top: 20, right: 28, left: 8, bottom: 52 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="name" interval={0} angle={-20} textAnchor="end" tick={axisTick} height={64} />
@@ -1080,24 +1165,86 @@ function MetricDrillPanel({
                   <XAxis dataKey="name" interval="preserveStartEnd" angle={-18} textAnchor="end" tick={axisTick} height={58} />
                   <YAxis tick={axisTick} domain={metric.id === "mews" ? [0, 6] : undefined} label={axisLabel(metric.id === "mews" ? "MEWS Score" : metric.kind === "rate" ? "Percent" : metric.unit ?? "Value")} />
                   <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                  {metric.id === "mews" && <RLegend wrapperStyle={{ fontSize: 12 }} />}
-                  {metric.id === "mews" ? (
-                    <>
-                      <Line type="monotone" dataKey="Admission" name="Admission MEWS" stroke={COLORS.coral} strokeWidth={3.25} dot={{ r: 4, fill: "white", stroke: COLORS.coral, strokeWidth: 2 }} activeDot={{ r: 7, fill: COLORS.amber, stroke: "white", strokeWidth: 2 }} />
-                      <Line type="monotone" dataKey="Discharge" name="Discharge MEWS" stroke={COLORS.green} strokeWidth={3.25} dot={{ r: 4, fill: "white", stroke: COLORS.green, strokeWidth: 2 }} activeDot={{ r: 7, fill: COLORS.amber, stroke: "white", strokeWidth: 2 }} />
-                    </>
-                  ) : (
-                    <Line type="monotone" dataKey="Value" stroke={COLORS.coral} strokeWidth={2.5} dot={{ r: 3, fill: "white" }} activeDot={{ r: 6, fill: COLORS.amber }} />
-                  )}
+                  <Line type="monotone" dataKey="Value" stroke={COLORS.coral} strokeWidth={2.5} dot={{ r: 3, fill: "white" }} activeDot={{ r: 6, fill: COLORS.amber }} />
                 </LineChart>
-              )}
-            </ResponsiveContainer>
+                )}
+              </ResponsiveContainer>
+            )}
           </div>
+          {metric.id === "avgLos" && (
+            <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold text-navy">Average LOS Timeline</div>
+                  <div className="text-xs text-muted-foreground">Daily trend across the selected date range</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Latest</div>
+                  <div className="text-lg font-bold text-navy">{losTimeline.at(-1)?.Value?.toFixed?.(1) ?? "3.8"} hr</div>
+                </div>
+              </div>
+              <ChartContainer
+                config={{
+                  Value: { label: "Average LOS", color: COLORS.navy },
+                }}
+                className="h-[320px] w-full"
+              >
+                <LineChart data={losTimeline} margin={{ top: 20, right: 28, left: 10, bottom: 50 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" interval="preserveStartEnd" angle={-18} textAnchor="end" tick={axisTick} height={58} />
+                  <YAxis tick={axisTick} label={axisLabel("Hours")} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="Value"
+                    stroke="var(--color-Value)"
+                    strokeWidth={3}
+                    dot={{ r: 3.5, fill: "white", stroke: "var(--color-Value)", strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: COLORS.amber, stroke: "white", strokeWidth: 2 }}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ChartContainer>
+            </div>
+          )}
+          {metric.id === "ppd" && (
+            <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold text-navy">Provider-Wise Disposition Breakdown</div>
+                  <div className="text-xs text-muted-foreground">Patients handled by each doctor split by current disposition</div>
+                </div>
+                <div className="text-right text-xs font-semibold text-muted-foreground">
+                  {providerRows.length} providers
+                </div>
+              </div>
+              <ChartContainer
+                config={{
+                  "ED Active": { label: "ED Active", color: COLORS.coral },
+                  Observation: { label: "Observation", color: COLORS.amber },
+                  Discharged: { label: "Discharged", color: COLORS.green },
+                }}
+                className="h-[320px] w-full"
+              >
+                <BarChart data={providerRows} margin={{ top: 18, right: 18, left: 8, bottom: 54 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
+                  <YAxis tick={axisTick} allowDecimals={false} label={axisLabel("Patients")} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Bar dataKey="ED Active" stackId="provider" fill="var(--color-ED Active)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="Observation" stackId="provider" fill="var(--color-Observation)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="Discharged" stackId="provider" fill="var(--color-Discharged)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-card shadow-soft">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div className="text-sm font-bold text-navy">Patient Snapshot</div>
-              <div className="text-xs font-semibold text-muted-foreground">{patients.length} records</div>
+              <div className="text-xs font-semibold text-muted-foreground">{patientRows.length} records</div>
             </div>
             <div className="overflow-auto">
               <table className="w-full text-sm">
@@ -1112,7 +1259,7 @@ function MetricDrillPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {patients.map(patient => (
+                  {patientRows.map(patient => (
                     <tr key={patient.key} className="border-t border-border">
                       <td className="px-4 py-2 font-bold text-navy">{patient.name}</td>
                       <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
@@ -1306,7 +1453,130 @@ function scaleNamedRows(rows: { name: string; value: number }[], multiplier: num
   return rows.map(row => ({ ...row, value: scale(row.value, multiplier) }));
 }
 
+function filterPatients<T extends { triage: number; status: string }>(patients: T[], activeFilter: DashboardFilter | null) {
+  if (!activeFilter) return patients;
+  return patients.filter(patient => matchesPatientFilter(patient as (typeof roster)[number], activeFilter));
+}
+
+function buildDispositionPieRows<T extends { status: string }>(patients: T[]) {
+  const counts = new Map<string, number>(dispositionDist.map(item => [item.name, 0]));
+  patients.forEach(patient => {
+    const label = patientDispositionLabel(patient as (typeof roster)[number]);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  });
+  return dispositionDist.map(item => ({ ...item, value: counts.get(item.name) ?? 0 }));
+}
+
+function buildTriagePieRows<T extends { triage: number }>(patients: T[]) {
+  const base = windowSafeTriageDist();
+  const counts = new Map<string, number>(base.map(item => [item.name, 0]));
+  patients.forEach(patient => {
+    const label = triageLabelFor(patient.triage);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  });
+  return base.map(item => ({ ...item, value: counts.get(item.name) ?? 0 }));
+}
+
+function buildTriageDispositionRows<T extends { triage: number; status: string }>(patients: T[]) {
+  const rows = [
+    { name: "Level I", Discharged: 0, Admitted: 0, Referred: 0, LAMA: 0, Expired: 0 },
+    { name: "Level II", Discharged: 0, Admitted: 0, Referred: 0, LAMA: 0, Expired: 0 },
+    { name: "Level III", Discharged: 0, Admitted: 0, Referred: 0, LAMA: 0, Expired: 0 },
+    { name: "Not Triaged", Discharged: 0, Admitted: 0, Referred: 0, LAMA: 0, Expired: 0 },
+  ];
+
+  patients.forEach(patient => {
+    const triageLabel = triageLabelFor(patient.triage);
+    const dispositionLabel = dispositionSeriesKey(patientDispositionLabel(patient as (typeof roster)[number]));
+    const row = rows.find(item => item.name === triageLabel);
+    if (!row) return;
+    if (dispositionLabel in row) {
+      row[dispositionLabel as keyof typeof row] = Number(row[dispositionLabel as keyof typeof row]) + 1 as never;
+    }
+  });
+
+  return rows;
+}
+
+function buildAgeGenderRows<T extends { age: number; sex: string }>(patients: T[], multiplier: number) {
+  if (!patients.length) {
+    return ageGenderBase.map(row => ({
+      ...row,
+      Male: scale(row.Male, multiplier),
+      Female: scale(row.Female, multiplier),
+    }));
+  }
+
+  const rows = [
+    { name: "0-18", Male: 0, Female: 0 },
+    { name: "19-35", Male: 0, Female: 0 },
+    { name: "36-55", Male: 0, Female: 0 },
+    { name: "56-75", Male: 0, Female: 0 },
+    { name: "76+", Male: 0, Female: 0 },
+  ];
+
+  patients.forEach(patient => {
+    const age = patient.age ?? 0;
+    const row =
+      age <= 18 ? rows[0] :
+      age <= 35 ? rows[1] :
+      age <= 55 ? rows[2] :
+      age <= 75 ? rows[3] :
+      rows[4];
+    if (patient.sex === "F") row.Female += 1;
+    else row.Male += 1;
+  });
+
+  return rows;
+}
+
+function buildPathwayCaseRows<T extends { pathway: string }>(patients: T[], multiplier: number) {
+  const counts = new Map<string, number>(pathwayCasesBase.map(row => [row.name, 0]));
+
+  patients.forEach(patient => {
+    const bucket = pathwayBucketFor(patient.pathway);
+    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+  });
+
+  return pathwayCasesBase.map(row => ({
+    ...row,
+    Total: patients.length ? counts.get(row.name) ?? 0 : scale(row.Total, multiplier),
+    Day: patients.length ? Math.round((counts.get(row.name) ?? 0) * 0.18) : scale(row.Day, multiplier),
+  }));
+}
+
 function applyFilterToRows<T extends Record<string, string | number>>(rows: T[], activeFilter: DashboardFilter | null) {
+  if (!rows.length || !activeFilter) return rows;
+  const numericKeys = Object.entries(rows[0])
+    .filter(([key, value]) => key !== "name" && typeof value === "number")
+    .map(([key]) => key);
+  const seriesLabel = normalizeSeriesFilterLabel(activeFilter.label);
+
+  if (numericKeys.includes(seriesLabel)) {
+    return rows.map(row => {
+      const next: Record<string, string | number> = { ...row };
+      Object.entries(row).forEach(([key, value]) => {
+        if (typeof value === "number" && key !== "name") {
+          next[key] = key === seriesLabel ? value : 0;
+        }
+      });
+      return next as T;
+    });
+  }
+
+  if (rows.some(row => String(row.name) === activeFilter.label)) {
+    return rows.map(row => {
+      if (String(row.name) !== activeFilter.label) {
+        const next: Record<string, string | number> = { ...row };
+        Object.entries(row).forEach(([key, value]) => {
+          if (typeof value === "number" && key !== "name") next[key] = 0;
+        });
+        return next as T;
+      }
+      return row;
+    });
+  }
+
   const multiplier = filterMultiplier(activeFilter);
   return rows.map(row => {
     const next: Record<string, string | number> = { ...row };
@@ -1318,6 +1588,9 @@ function applyFilterToRows<T extends Record<string, string | number>>(rows: T[],
 }
 
 function applyFilterToPie(rows: { name: string; value: number; color: string }[], activeFilter: DashboardFilter | null) {
+  if (activeFilter?.source === "Disposition" || activeFilter?.source === "Triage") {
+    return rows.map(row => ({ ...row, value: row.name === activeFilter.label ? row.value : 0 }));
+  }
   const multiplier = filterMultiplier(activeFilter);
   return rows.map(row => ({ ...row, value: activeFilter?.label === row.name ? scale(row.value, 1.18) : scale(row.value, multiplier) }));
 }
@@ -1340,28 +1613,169 @@ function scale(value: number, multiplier: number) {
   return Math.max(1, Math.round(value * multiplier));
 }
 
-function patientsFor(metricId: string, activeFilter: DashboardFilter | null) {
-  const multiplier = filterMultiplier(activeFilter);
-  const count = Math.max(3, Math.min(roster.length, Math.ceil(roster.length * multiplier)));
-  return roster.slice(0, count).map((patient, index) => ({
+function filterImpactMultiplier(filteredCount: number, totalCount: number) {
+  if (!totalCount) return 1;
+  return Math.max(0.15, filteredCount / totalCount);
+}
+
+function buildProviderDispositionRows<T extends { physician: string; status: string }>(patients: T[]) {
+  const rows = new Map<string, { name: string; "ED Active": number; Observation: number; Discharged: number; total: number }>();
+
+  patients
+    .filter(patient => patient.physician && patient.physician !== "-" && patient.physician !== "—")
+    .forEach(patient => {
+      const current = rows.get(patient.physician) ?? { name: patient.physician, "ED Active": 0, Observation: 0, Discharged: 0, total: 0 };
+      if (patient.status === "discharged") current.Discharged += 1;
+      else if (patient.status === "obs") current.Observation += 1;
+      else current["ED Active"] += 1;
+      current.total += 1;
+      rows.set(patient.physician, current);
+    });
+
+  return Array.from(rows.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+}
+
+function patientsFor(metricId: string, patients: typeof roster, activeFilter: DashboardFilter | null) {
+  const filteredRoster = patients.filter(patient => matchesPatientFilter(patient, activeFilter));
+  const multiplier = filterImpactMultiplier(filteredRoster.length, patients.length);
+  const count = activeFilter
+    ? filteredRoster.length
+    : Math.max(3, Math.min(patients.length, Math.ceil(patients.length * multiplier)));
+  return filteredRoster.slice(0, count).map((patient, index) => ({
     ...patient,
     key: `${metricId}-${activeFilter?.label ?? "all"}-${patient.id}-${index}`,
   }));
 }
 
+function dispositionSeriesKey(label: string) {
+  return ({
+    Discharged: "Discharged",
+    Admitted: "Admitted",
+    "Referred Out": "Referred",
+    LAMA: "LAMA",
+    Expired: "Expired",
+  } as Record<string, string>)[label] ?? label;
+}
+
+function matchesPatientFilter(patient: (typeof roster)[number], activeFilter: DashboardFilter | null) {
+  if (!activeFilter) return true;
+
+  if (activeFilter.source === "Disposition") {
+    return patientDispositionLabel(patient) === activeFilter.label;
+  }
+
+  if (activeFilter.source === "Triage") {
+    return triageLabelFor(patient.triage) === activeFilter.label;
+  }
+
+  if (activeFilter.source === "Arrival Mode") {
+    return patientArrivalMode(patient) === activeFilter.label;
+  }
+
+  if (activeFilter.source === "Gender") {
+    return patientGenderLabel(patient.sex) === activeFilter.label;
+  }
+
+  if (activeFilter.source === "Age Group") {
+    return ageBucketFor(patient.age) === activeFilter.label;
+  }
+
+  if (activeFilter.source === "Care Pathway") {
+    return pathwayBucketFor(patient.pathway) === activeFilter.label;
+  }
+
+  if (activeFilter.source === "Patients / Doctor") {
+    return patient.physician === activeFilter.label;
+  }
+
+  return true;
+}
+
+function patientDispositionLabel(patient: (typeof roster)[number]) {
+  if (patient.status === "discharged") return "Discharged";
+  if (patient.status === "obs") return "Admitted";
+  return "Admitted";
+}
+
+function triageLabelFor(triage: number) {
+  return ({
+    1: "Level I",
+    2: "Level II",
+    3: "Level III",
+    0: "Not Triaged",
+  } as Record<number, string>)[triage] ?? "Not Triaged";
+}
+
+function patientArrivalMode(patient: (typeof roster)[number]) {
+  const pathway = patient.pathway.toLowerCase();
+  if (
+    patient.bed.startsWith("TR-") ||
+    patient.triage === 1 ||
+    pathway.includes("trauma") ||
+    pathway.includes("stemi") ||
+    pathway.includes("stroke") ||
+    pathway.includes("sepsis") ||
+    pathway.includes("anaphylaxis")
+  ) {
+    return "Ambulance";
+  }
+  return "Walk In";
+}
+
+function patientGenderLabel(sex: (typeof roster)[number]["sex"]) {
+  if (sex === "F") return "Female";
+  if (sex === "Other") return "Other";
+  return "Male";
+}
+
+function ageBucketFor(age: number) {
+  if (age <= 18) return "0-18";
+  if (age <= 35) return "19-35";
+  if (age <= 55) return "36-55";
+  if (age <= 75) return "56-75";
+  return "76+";
+}
+
+function pathwayBucketFor(pathway: string) {
+  const value = pathway.toLowerCase();
+  if (value.includes("stemi") || value.includes("chest")) return "Chest Pain";
+  if (value.includes("stroke")) return "Stroke";
+  if (value.includes("sepsis")) return "Sepsis";
+  if (value.includes("trauma")) return "Trauma";
+  if (value.includes("snake") || value.includes("antivenom")) return "Snakebite";
+  if (value.includes("respiratory")) return "Respiratory";
+  if (value.includes("toxic") || value.includes("poison")) return "Poisoning";
+  return "Chest Pain";
+}
+
 function selectFromChart(
   event: any,
   source: string,
-  setActiveFilter: ((filter: DashboardFilter) => void) | ((label: string, payload?: any) => void),
+  setActiveFilter: ((filter: DashboardFilter) => void) | ((label: string, payload?: any, seriesKey?: string) => void),
 ) {
-  const payload = event?.activePayload?.[0]?.payload;
+  const activePayload = event?.activePayload?.[0];
+  const payload = activePayload?.payload;
   if (!payload) return;
   const label = String(payload.name ?? payload.date ?? payload.bucket ?? source);
+  const seriesKey = activePayload?.dataKey ? String(activePayload.dataKey) : undefined;
   if (setActiveFilter.length >= 2) {
-    (setActiveFilter as (label: string, payload?: any) => void)(label, payload);
+    (setActiveFilter as (label: string, payload?: any, seriesKey?: string) => void)(label, payload, seriesKey);
     return;
   }
   (setActiveFilter as (filter: DashboardFilter) => void)({ source, label });
+}
+
+function normalizeSeriesFilterLabel(label: string) {
+  if (label === "Referred Out") return "Referred";
+  return label;
+}
+
+function isDispositionFilterLabel(label: string) {
+  return ["Discharged", "Admitted", "Referred", "Referred Out", "LAMA", "Expired"].includes(label);
+}
+
+function isGenderFilterLabel(label: string) {
+  return ["Male", "Female", "Other"].includes(label);
 }
 
 const axisTick = { fontSize: 12, fill: "var(--muted-foreground)", fontWeight: 600 };
