@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Bed, Download, LayoutDashboard, MoreHorizontal, Plus, Search, TrendingUp, Users, X, Zap } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useAuth } from "@/lib/auth";
 import { buildClinicianSnapshot, getAssignedNurse } from "@/lib/careOverview";
@@ -129,7 +129,7 @@ function Dashboard() {
       </div>
 
       {tab === "perf" ? (
-        <RolePerformancePanel snapshot={roleSnapshot} role={user.role} />
+        <RolePerformancePanel snapshot={roleSnapshot} role={user.role} userName={user.name} />
       ) : (
         <>
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
@@ -322,76 +322,147 @@ function Dashboard() {
 function RolePerformancePanel({
   snapshot,
   role,
+  userName,
 }: {
   snapshot: ReturnType<typeof buildClinicianSnapshot>;
   role: "doctor" | "nurse" | "admin";
+  userName: string;
 }) {
+  const [showNotes, setShowNotes] = useState(false);
+  const noteKey = `dbi.shift-note.${role}.${userName}`;
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const countdown = useShiftCountdown();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(noteKey);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as { note?: string; savedAt?: string };
+      setNoteDraft(parsed.note ?? "");
+      setSavedAt(parsed.savedAt ?? null);
+    } catch {
+      setNoteDraft("");
+      setSavedAt(null);
+    }
+  }, [noteKey]);
+
+  const saveNote = () => {
+    if (typeof window === "undefined") return;
+    const payload = { note: noteDraft, savedAt: new Date().toLocaleString() };
+    window.localStorage.setItem(noteKey, JSON.stringify(payload));
+    setSavedAt(payload.savedAt);
+  };
+
   return (
     <div className="space-y-5">
-      <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+      <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Performance Analytics</div>
-            <h2 className="mt-1 text-xl font-bold text-navy">{snapshot.title}</h2>
+            <h2 className="mt-1 text-2xl font-bold text-navy">{snapshot.title}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{snapshot.subtitle}</p>
           </div>
-          <div className="rounded-2xl bg-secondary/35 px-4 py-3 text-right">
-            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Assigned census</div>
-            <div className="mt-1 text-2xl font-bold text-navy">{snapshot.assignedPatients.length}</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl border border-border bg-white px-4 py-3 text-right shadow-soft">
+              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Assigned census</div>
+              <div className="mt-1 text-2xl font-bold text-navy">{snapshot.assignedPatients.length}</div>
+            </div>
+            <div className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-right shadow-soft">
+              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-coral">Next shift in</div>
+              <div className="mt-1 text-xl font-bold text-navy">{countdown}</div>
+            </div>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {snapshot.metrics.map((metric) => (
             <PerformanceMetricCard key={metric.label} metric={metric} />
           ))}
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
-          <div className="mb-4 text-lg font-bold text-navy">
-            {role === "nurse" ? "Assigned nursing workload" : "Assigned patient mix"}
-          </div>
-          <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-2xl border border-border bg-white p-4">
-              <div className="mb-2 text-sm font-bold text-navy">Status split</div>
-              <ChartContainer
-                config={{
-                  ED: { label: "ED", color: "var(--navy)" },
-                  Observation: { label: "Observation", color: "var(--amber-emerg)" },
-                  Discharged: { label: "Discharged", color: "var(--coral)" },
-                }}
-                className="h-[240px] w-full"
-              >
-                <PieChart>
-                  <Pie data={snapshot.statusMix.map((item) => ({ ...item, fill: item.color }))} dataKey="value" nameKey="label" innerRadius={42} outerRadius={74} paddingAngle={4} />
-                  <ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
-                  <ChartLegend content={<ChartLegendContent nameKey="label" />} />
-                </PieChart>
-              </ChartContainer>
+      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#16345a_0%,#1f4ea8_100%)] p-5 text-white shadow-soft-lg">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.18em] text-white/60">{snapshot.shiftHandover.shiftLabel}</div>
+              <h3 className="mt-1 text-xl font-bold">{role === "nurse" ? "Nursing handover" : "Doctor handover"}</h3>
+              <p className="mt-2 max-w-3xl text-sm text-white/70">{snapshot.shiftHandover.currentSummary}</p>
             </div>
-            <div className="rounded-2xl border border-border bg-white p-4">
-              <div className="mb-2 text-sm font-bold text-navy">Pathway distribution</div>
-              <ChartContainer
-                config={{
-                  value: { label: role === "nurse" ? "Assigned patients" : "Patient count", color: "var(--coral)" },
-                }}
-                className="h-[240px] w-full"
-              >
-                <BarChart data={snapshot.pathwayMix.slice(0, 6)} layout="vertical" margin={{ top: 8, right: 12, bottom: 8, left: 12 }}>
-                  <CartesianGrid horizontal={false} />
-                  <XAxis type="number" tickLine={false} axisLine={false} />
-                  <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={110} />
-                  <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
-                  <Bar dataKey="value" fill="var(--color-value)" radius={[0, 10, 10, 0]} />
-                </BarChart>
-              </ChartContainer>
+            <button
+              type="button"
+              onClick={() => setShowNotes((value) => !value)}
+              className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+            >
+              {showNotes ? "Hide note" : "Leave note for next shift"}
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-5">
+            {snapshot.shiftHandover.stats.map((item) => (
+              <div key={item.label} className="rounded-2xl border border-white/10 bg-white/10 p-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">{item.label}</div>
+                <div className="mt-1 text-2xl font-bold">{item.value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
+              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/55">Previous shift</div>
+              <div className="mt-2 text-sm font-bold">{snapshot.shiftHandover.previousClinician}</div>
+              <div className="mt-2 text-sm text-white/70">{snapshot.shiftHandover.previousSummary}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
+              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/55">For next shift</div>
+              <div className="mt-2 text-sm font-bold">{snapshot.shiftHandover.nextClinician}</div>
+              <div className="mt-3 grid gap-2">
+                {snapshot.shiftHandover.pendingItems.map((item) => (
+                  <div key={item.patientId} className="rounded-xl border border-white/10 bg-white/10 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-semibold">{item.patientName}</div>
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${item.flag === "urgent" ? "bg-red-500/80 text-white" : "bg-amber-400/80 text-slate-950"}`}>
+                        {item.flag === "urgent" ? "Urgent" : "Watch"}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-white/70">{item.detail}</div>
+                  </div>
+                ))}
+                {!snapshot.shiftHandover.pendingItems.length ? <div className="rounded-xl border border-white/10 bg-white/10 p-3 text-xs text-white/65">No unresolved critical items for handover.</div> : null}
+              </div>
             </div>
           </div>
+          {showNotes ? (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold">Shift note to {snapshot.shiftHandover.nextClinician}</div>
+                  <div className="mt-1 text-xs text-white/60">{savedAt ? `Last saved ${savedAt}` : "Add a short handover note for the incoming shift."}</div>
+                </div>
+                <button type="button" onClick={saveNote} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-navy transition hover:bg-white/90">
+                  Save note
+                </button>
+              </div>
+              <textarea
+                value={noteDraft}
+                onChange={(event) => setNoteDraft(event.target.value)}
+                rows={4}
+                className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/25"
+                placeholder="Pending callbacks, unstable observations, family concerns, planned discharges..."
+              />
+            </div>
+          ) : null}
         </div>
 
-        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
-          <div className="mb-4 text-lg font-bold text-navy">Immediate attention</div>
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-lg font-bold text-navy">Immediate attention</div>
+              <div className="mt-1 text-sm text-muted-foreground">Alerts, pending reviews, and bedside watch items.</div>
+            </div>
+            <div className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+              {snapshot.attentionList.filter((item) => item.tone !== "steady").length} active
+            </div>
+          </div>
           <div className="space-y-3">
             {snapshot.attentionList.map((item) => (
               <div key={item.patientId} className={`rounded-2xl border p-4 ${item.tone === "critical" ? "border-red-200 bg-red-50/80" : item.tone === "warning" ? "border-amber-200 bg-amber-50" : "border-border bg-white"}`}>
@@ -419,7 +490,277 @@ function RolePerformancePanel({
         </div>
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+      <div className="grid gap-5 xl:grid-cols-12">
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-3">
+          <div className="mb-4 text-lg font-bold text-navy">Shift KPIs</div>
+          <div className="grid gap-3">
+            {snapshot.outcomeMetrics.map((metric) => (
+              <PerformanceMetricCard key={metric.label} metric={metric} compact />
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-9">
+          <div className="grid gap-5 xl:grid-cols-2">
+            <div>
+              <div className="mb-3">
+                <div className="text-base font-bold text-navy">My TAT vs Department Average</div>
+                <div className="text-xs text-muted-foreground">Minutes, lower is better</div>
+              </div>
+              <ChartContainer
+                config={{
+                  mine: { label: "Mine", color: "var(--coral)" },
+                  department: { label: "Department", color: "var(--navy)" },
+                }}
+                className="h-[220px] w-full"
+              >
+                <LineChart data={snapshot.tatSeries} margin={{ top: 10, right: 12, bottom: 12, left: 0 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Line type="monotone" dataKey="mine" stroke="var(--color-mine)" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="department" stroke="var(--color-department)" strokeWidth={2.5} dot={{ r: 3 }} />
+                </LineChart>
+              </ChartContainer>
+            </div>
+            <div>
+              <div className="mb-3">
+                <div className="text-base font-bold text-navy">My Disposition Breakdown</div>
+                <div className="text-xs text-muted-foreground">Patient outcomes by disposition type</div>
+              </div>
+              <ChartContainer
+                config={{
+                  discharged: { label: "Discharged", color: "var(--navy)" },
+                  observation: { label: "Observation", color: "var(--urgent-safe)" },
+                  admitted: { label: "Admitted", color: "var(--amber-emerg)" },
+                  referred: { label: "Referred", color: "var(--urgent-critical)" },
+                }}
+                className="h-[220px] w-full"
+              >
+                <PieChart>
+                  <Pie data={snapshot.dispositionBreakdown.map((item) => ({ ...item, fill: item.color }))} dataKey="value" nameKey="label" innerRadius={50} outerRadius={82} paddingAngle={4} />
+                  <ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
+                  <ChartLegend content={<ChartLegendContent nameKey="label" />} />
+                </PieChart>
+              </ChartContainer>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-12">
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-6">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">My Caseload Over Time</div>
+            <div className="text-xs text-muted-foreground">Patients per shift</div>
+          </div>
+          <ChartContainer config={{ value: { label: "Patients", color: "var(--navy)" } }} className="h-[220px] w-full">
+            <BarChart data={snapshot.caseloadSeries} margin={{ top: 10, right: 12, bottom: 12, left: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="value" fill="var(--color-value)" radius={[10, 10, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </div>
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-6">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">MEWS - Admission vs Discharge</div>
+            <div className="text-xs text-muted-foreground">Lower discharge is better</div>
+          </div>
+          <ChartContainer
+            config={{
+              admission: { label: "Admission", color: "var(--coral)" },
+              discharge: { label: "Discharge", color: "var(--urgent-safe)" },
+            }}
+            className="h-[220px] w-full"
+          >
+            <BarChart data={snapshot.mewsSeries} margin={{ top: 10, right: 12, bottom: 12, left: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="admission" fill="var(--color-admission)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="discharge" fill="var(--color-discharge)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </div>
+      </div>
+
+      <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft">
+        <div className="mb-3">
+          <div className="text-base font-bold text-navy">Door-to-Disposition Time by Care Pathway</div>
+          <div className="text-xs text-muted-foreground">Median and P90 versus target minutes</div>
+        </div>
+        <ChartContainer
+          config={{
+            median: { label: "Median", color: "var(--navy)" },
+            p90: { label: "P90", color: "var(--coral)" },
+            target: { label: "Target", color: "var(--amber-emerg)" },
+          }}
+          className="h-[240px] w-full"
+        >
+          <BarChart data={snapshot.pathwayTatSeries} margin={{ top: 10, right: 12, bottom: 30, left: 0 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} angle={-18} textAnchor="end" height={56} />
+            <YAxis tickLine={false} axisLine={false} />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar dataKey="median" fill="var(--color-median)" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="p90" fill="var(--color-p90)" radius={[8, 8, 0, 0]} />
+            <Line type="monotone" dataKey="target" stroke="var(--color-target)" strokeDasharray="6 6" strokeWidth={2} dot={false} />
+          </BarChart>
+        </ChartContainer>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-12">
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-4">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">Patient Journey Bottleneck</div>
+            <div className="text-xs text-muted-foreground">Average time per stage, today vs baseline</div>
+          </div>
+          <div className="space-y-4">
+            {snapshot.stageTat.map((item) => (
+              <div key={item.label}>
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-navy">{item.label}</div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                      item.flag === "risk" ? "bg-red-100 text-red-700" : item.flag === "watch" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-700"
+                    }`}>
+                      {item.flag === "risk" ? "Risk" : item.flag === "watch" ? "Watch" : "On time"}
+                    </span>
+                    <span className="text-sm font-bold text-navy">{item.minutes}m</span>
+                  </div>
+                </div>
+                <div className="text-[11px] text-muted-foreground">Baseline {item.baseline}m</div>
+                <div className="mt-2 h-3 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={`h-full rounded-full ${item.flag === "risk" ? "bg-red-500" : item.flag === "watch" ? "bg-amber-500" : "bg-emerald-500"}`}
+                    style={{ width: `${Math.min(100, item.minutes * 1.8)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-4">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">Case Mix by Triage Level Over Time</div>
+            <div className="text-xs text-muted-foreground">Triage I, II, III distribution per day</div>
+          </div>
+          <ChartContainer
+            config={{
+              level1: { label: "Level I", color: "var(--urgent-critical)" },
+              level2: { label: "Level II", color: "var(--amber-emerg)" },
+              level3: { label: "Level III", color: "var(--navy)" },
+            }}
+            className="h-[240px] w-full"
+          >
+            <BarChart data={snapshot.triageTrend} margin={{ top: 10, right: 12, bottom: 12, left: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="level1" stackId="triage" fill="var(--color-level1)" />
+              <Bar dataKey="level2" stackId="triage" fill="var(--color-level2)" />
+              <Bar dataKey="level3" stackId="triage" fill="var(--color-level3)" />
+            </BarChart>
+          </ChartContainer>
+        </div>
+
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-4">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">My Protocol Compliance</div>
+            <div className="text-xs text-muted-foreground">Documentation and protocol adherence</div>
+          </div>
+          <div className="space-y-4">
+            {snapshot.protocolCompliance.map((item) => (
+              <div key={item.label}>
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-navy">{item.label}</div>
+                  <div className="text-sm font-bold text-navy">{item.value}%</div>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-secondary">
+                  <div className="h-full rounded-full" style={{ width: `${item.value}%`, background: item.color }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-12">
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-6">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">Care Pathway Trends</div>
+            <div className="text-xs text-muted-foreground">Cases per pathway over time</div>
+          </div>
+          <ChartContainer
+            config={Object.keys(snapshot.pathwayTrend[0] ?? {}).reduce<Record<string, { label: string; color: string }>>((acc, key, index) => {
+              if (key === "label") return acc;
+              acc[key] = { label: key, color: [ "var(--navy)", "var(--coral)", "var(--amber-emerg)" ][index - 1] ?? "var(--navy)" };
+              return acc;
+            }, {})}
+            className="h-[240px] w-full"
+          >
+            <BarChart data={snapshot.pathwayTrend} margin={{ top: 10, right: 12, bottom: 12, left: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              {Object.keys(snapshot.pathwayTrend[0] ?? {}).filter((key) => key !== "label").map((key, index) => (
+                <Bar key={key} dataKey={key} fill={[ "var(--navy)", "var(--coral)", "var(--amber-emerg)" ][index] ?? "var(--navy)"} radius={[8, 8, 0, 0]} />
+              ))}
+            </BarChart>
+          </ChartContainer>
+        </div>
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-3">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">Triage categories distribution</div>
+            <div className="text-xs text-muted-foreground">Current assigned triage mix</div>
+          </div>
+          <ChartContainer
+            config={{
+              level1: { label: "Level I", color: "var(--urgent-critical)" },
+              level2: { label: "Level II", color: "var(--urgent-urgent)" },
+              level3: { label: "Level III", color: "var(--urgent-pending)" },
+              pending: { label: "Not Triaged", color: "var(--muted-foreground)" },
+            }}
+            className="h-[240px] w-full"
+          >
+            <PieChart>
+              <Pie data={snapshot.triageMix.map((item) => ({ ...item, fill: item.color }))} dataKey="value" nameKey="label" innerRadius={44} outerRadius={82} paddingAngle={4} />
+              <ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
+              <ChartLegend content={<ChartLegendContent nameKey="label" />} />
+            </PieChart>
+          </ChartContainer>
+        </div>
+        <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft xl:col-span-3">
+          <div className="mb-3">
+            <div className="text-base font-bold text-navy">Length of stay by care pathway</div>
+            <div className="text-xs text-muted-foreground">Average hours per pathway</div>
+          </div>
+          <ChartContainer config={{ value: { label: "Hours", color: "var(--amber-emerg)" } }} className="h-[240px] w-full">
+            <BarChart data={snapshot.losByPathway} margin={{ top: 10, right: 12, bottom: 42, left: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} angle={-18} textAnchor="end" height={58} />
+              <YAxis tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="value" fill="var(--color-value)" radius={[10, 10, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </div>
+      </div>
+
+      <div className="rounded-[2rem] border border-border bg-card p-5 shadow-soft">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <div className="text-lg font-bold text-navy">Assigned patient snapshots</div>
@@ -440,8 +781,10 @@ function RolePerformancePanel({
 
 function PerformanceMetricCard({
   metric,
+  compact,
 }: {
   metric: { label: string; value: string; note: string; tone?: "critical" | "steady" | "attention" };
+  compact?: boolean;
 }) {
   const className =
     metric.tone === "critical"
@@ -450,12 +793,37 @@ function PerformanceMetricCard({
         ? "border-amber-200 bg-amber-50"
         : "border-border bg-white";
   return (
-    <div className={`rounded-2xl border p-4 ${className}`}>
+    <div className={`rounded-2xl border ${compact ? "p-3.5" : "p-4"} ${className}`}>
       <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{metric.label}</div>
       <div className={`mt-2 text-2xl font-bold ${metric.tone === "critical" ? "text-red-700" : "text-navy"}`}>{metric.value}</div>
       <div className="mt-1 text-xs text-muted-foreground">{metric.note}</div>
     </div>
   );
+}
+
+function useShiftCountdown() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const nextShift = new Date(now);
+  const hour = now.getHours();
+  if (hour < 8) {
+    nextShift.setHours(8, 0, 0, 0);
+  } else if (hour < 20) {
+    nextShift.setHours(20, 0, 0, 0);
+  } else {
+    nextShift.setDate(nextShift.getDate() + 1);
+    nextShift.setHours(8, 0, 0, 0);
+  }
+
+  const diffMs = Math.max(0, nextShift.getTime() - now.getTime());
+  const hours = Math.floor(diffMs / 3_600_000);
+  const minutes = Math.floor((diffMs % 3_600_000) / 60_000);
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
 function PatientSnapshotCard({

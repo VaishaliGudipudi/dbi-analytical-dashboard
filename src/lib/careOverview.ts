@@ -145,7 +145,29 @@ export type ClinicianSnapshot = {
   assignedPatients: PatientOverview[];
   metrics: { label: string; value: string; note: string; tone?: "critical" | "steady" | "attention" }[];
   statusMix: { label: string; value: number; color: string }[];
+  triageMix: { label: string; value: number; color: string }[];
   pathwayMix: { label: string; value: number }[];
+  outcomeMetrics: { label: string; value: string; note: string; tone?: "critical" | "steady" | "attention" }[];
+  stageTat: { label: string; minutes: number; flag: "ok" | "watch" | "risk"; baseline: number }[];
+  investigationQueue: { label: string; value: number; color: string }[];
+  losByPathway: { label: string; value: number }[];
+  tatSeries: { label: string; mine: number; department: number }[];
+  dispositionBreakdown: { label: string; value: number; color: string }[];
+  caseloadSeries: { label: string; value: number }[];
+  mewsSeries: { label: string; admission: number; discharge: number }[];
+  pathwayTatSeries: { label: string; median: number; p90: number; target: number }[];
+  triageTrend: { label: string; level1: number; level2: number; level3: number }[];
+  pathwayTrend: Array<{ label: string } & Record<string, number | string>>;
+  protocolCompliance: { label: string; value: number; color: string }[];
+  shiftHandover: {
+    shiftLabel: string;
+    previousClinician: string;
+    nextClinician: string;
+    previousSummary: string;
+    currentSummary: string;
+    stats: { label: string; value: string }[];
+    pendingItems: { patientId: string; patientName: string; detail: string; flag: "urgent" | "watch" }[];
+  };
   attentionList: { patientId: string; patientName: string; bed: string; reason: string; tone: "critical" | "warning" | "steady" }[];
 };
 
@@ -316,6 +338,28 @@ export function buildClinicianSnapshot(patients: Patient[], user: User): Clinici
     .map(([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value);
 
+  const triageMix = [
+    { label: "Level I", value: assignedPatients.filter((item) => item.patient.triage === 1).length, color: "var(--urgent-critical)" },
+    { label: "Level II", value: assignedPatients.filter((item) => item.patient.triage === 2).length, color: "var(--urgent-urgent)" },
+    { label: "Level III", value: assignedPatients.filter((item) => item.patient.triage === 3).length, color: "var(--urgent-pending)" },
+    { label: "Not Triaged", value: assignedPatients.filter((item) => item.patient.triage === 0).length, color: "var(--muted-foreground)" },
+  ];
+
+  const investigationQueue = buildInvestigationQueue(assignedPatients);
+  const avgInvestigationTat = averageInvestigationTat(assignedPatients);
+  const outcomeRates = buildOutcomeRates(assignedPatients);
+  const stageTat = buildStageTat(assignedPatients, avgInvestigationTat);
+  const losByPathway = buildLosByPathway(assignedPatients);
+  const shiftHandover = buildShiftHandover(user, assignedPatients, critical, pendingResults, obs, attentionList);
+  const tatSeries = buildTatSeries(user, assignedPatients);
+  const dispositionBreakdown = buildDispositionBreakdown(assignedPatients);
+  const caseloadSeries = buildCaseloadSeries(assignedPatients);
+  const mewsSeries = buildMewsSeries(assignedPatients);
+  const pathwayTatSeries = buildPathwayTatSeries(assignedPatients);
+  const triageTrend = buildTriageTrend(assignedPatients);
+  const pathwayTrend = buildPathwayTrend(assignedPatients);
+  const protocolCompliance = buildProtocolCompliance(assignedPatients);
+
   return {
     title:
       user.role === "doctor"
@@ -356,9 +400,227 @@ export function buildClinicianSnapshot(patients: Patient[], user: User): Clinici
       { label: "Observation", value: assignedPatients.filter((item) => item.patient.status === "obs").length, color: "var(--amber-emerg)" },
       { label: "Discharged", value: assignedPatients.filter((item) => item.patient.status === "discharged").length, color: "var(--coral)" },
     ],
+    triageMix,
     pathwayMix,
+    outcomeMetrics:
+      user.role === "nurse"
+        ? [
+            { label: "Investigation TAT", value: `${avgInvestigationTat} min`, note: "sample to result readiness", tone: avgInvestigationTat > 45 ? "attention" : "steady" },
+            { label: "ER Mortality", value: `${outcomeRates.mortality.toFixed(1)}%`, note: "current shift adjusted", tone: outcomeRates.mortality >= 2 ? "critical" : "steady" },
+            { label: "72h Readmission", value: `${outcomeRates.readmission72.toFixed(1)}%`, note: "return after recent ED stay", tone: outcomeRates.readmission72 >= 4 ? "attention" : "steady" },
+            { label: "Return After Discharge", value: `${outcomeRates.returnAfterDischarge.toFixed(1)}%`, note: "follow-up revisit signal", tone: outcomeRates.returnAfterDischarge >= 5 ? "attention" : "steady" },
+          ]
+        : [
+            { label: "Investigation TAT", value: `${avgInvestigationTat} min`, note: "average pending-to-ready time", tone: avgInvestigationTat > 45 ? "attention" : "steady" },
+            { label: "ER Mortality", value: `${outcomeRates.mortality.toFixed(1)}%`, note: "acuity-adjusted department signal", tone: outcomeRates.mortality >= 2 ? "critical" : "steady" },
+            { label: "72h Readmission", value: `${outcomeRates.readmission72.toFixed(1)}%`, note: "bounce-back within 72 hours", tone: outcomeRates.readmission72 >= 4 ? "attention" : "steady" },
+            { label: "Return After Discharge", value: `${outcomeRates.returnAfterDischarge.toFixed(1)}%`, note: "post-discharge return trend", tone: outcomeRates.returnAfterDischarge >= 5 ? "attention" : "steady" },
+          ],
+    stageTat,
+    investigationQueue,
+    losByPathway,
+    tatSeries,
+    dispositionBreakdown,
+    caseloadSeries,
+    mewsSeries,
+    pathwayTatSeries,
+    triageTrend,
+    pathwayTrend,
+    protocolCompliance,
+    shiftHandover,
     attentionList,
   };
+}
+
+function averageInvestigationTat(assignedPatients: PatientOverview[]) {
+  const minutes = assignedPatients
+    .flatMap((item) => item.investigations)
+    .map((investigation) => Number.parseInt(investigation.tat, 10))
+    .filter((value) => Number.isFinite(value));
+
+  if (!minutes.length) return 0;
+  return Math.round(minutes.reduce((sum, value) => sum + value, 0) / minutes.length);
+}
+
+function buildInvestigationQueue(assignedPatients: PatientOverview[]) {
+  const items = assignedPatients.flatMap((item) => item.investigations);
+  return [
+    { label: "Pending", value: items.filter((item) => item.status === "Pending").length, color: "var(--urgent-critical)" },
+    { label: "Ready", value: items.filter((item) => item.status === "Ready").length, color: "var(--amber-emerg)" },
+    { label: "Reviewed", value: items.filter((item) => item.status === "Reviewed").length, color: "var(--urgent-safe)" },
+  ];
+}
+
+function buildOutcomeRates(assignedPatients: PatientOverview[]) {
+  const total = Math.max(assignedPatients.length, 1);
+  const critical = assignedPatients.filter((item) => item.patient.triage === 1).length;
+  const discharged = assignedPatients.filter((item) => item.patient.status === "discharged").length;
+  const pending = assignedPatients.reduce((sum, item) => sum + item.investigations.filter((investigation) => investigation.status === "Pending").length, 0);
+
+  return {
+    mortality: Number((0.6 + critical * 0.35 + total * 0.05).toFixed(1)),
+    readmission72: Number((1.9 + discharged * 0.45 + total * 0.08).toFixed(1)),
+    returnAfterDischarge: Number((2.7 + discharged * 0.55 + pending * 0.04).toFixed(1)),
+  };
+}
+
+function buildStageTat(assignedPatients: PatientOverview[], avgInvestigationTat: number) {
+  const total = Math.max(assignedPatients.length, 1);
+  const critical = assignedPatients.filter((item) => item.patient.triage === 1).length;
+  const observation = assignedPatients.filter((item) => item.patient.status === "obs").length;
+  const registration = Math.max(6, 8 + Math.round(total * 0.8));
+  const triage = Math.max(9, 11 + critical * 3);
+  const consult = Math.max(18, 21 + critical * 6 + observation * 2);
+  const investigations = Math.max(24, avgInvestigationTat);
+  const disposition = Math.max(16, 18 + observation * 4);
+
+  return [
+    { label: "Registration", minutes: registration, baseline: 9, flag: registration > 15 ? "watch" : "ok" as const },
+    { label: "Triage", minutes: triage, baseline: 12, flag: triage > 18 ? "watch" : "ok" as const },
+    { label: "Consult", minutes: consult, baseline: 24, flag: consult > 35 ? "risk" : consult > 24 ? "watch" : "ok" as const },
+    { label: "Investigations", minutes: investigations, baseline: 30, flag: investigations > 45 ? "risk" : investigations > 32 ? "watch" : "ok" as const },
+    { label: "Disposition", minutes: disposition, baseline: 22, flag: disposition > 32 ? "risk" : disposition > 24 ? "watch" : "ok" as const },
+  ];
+}
+
+function buildLosByPathway(assignedPatients: PatientOverview[]) {
+  const buckets = new Map<string, { total: number; count: number }>();
+
+  assignedPatients.forEach((item) => {
+    const label = item.patient.pathway.replace(" Protocol", "").replace(" Bundle", "");
+    const current = buckets.get(label) ?? { total: 0, count: 0 };
+    const seed = seedFrom(item.patient.id);
+    const los = Number((2.1 + item.patient.triage * 0.7 + (seed % 9) * 0.22 + (item.patient.status === "obs" ? 1.1 : item.patient.status === "discharged" ? 0.4 : 0.8)).toFixed(1));
+    current.total += los;
+    current.count += 1;
+    buckets.set(label, current);
+  });
+
+  return Array.from(buckets.entries())
+    .map(([label, stats]) => ({ label, value: Number((stats.total / Math.max(stats.count, 1)).toFixed(1)) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+}
+
+function buildShiftHandover(
+  user: User,
+  assignedPatients: PatientOverview[],
+  critical: number,
+  pendingResults: number,
+  observation: number,
+  attentionList: ClinicianSnapshot["attentionList"],
+) {
+  const roster = user.role === "nurse"
+    ? ["Nurse Anita", "Nurse Farah", "Nurse Kavya", "Nurse Joseph"]
+    : ["Dr. Tejaswi", "Dr. Mehta", "Dr. Khan", "Dr. Iyer"];
+  const currentIndex = Math.max(0, roster.indexOf(user.name));
+  const previousClinician = roster[(currentIndex + roster.length - 1) % roster.length];
+  const nextClinician = roster[(currentIndex + 1) % roster.length];
+  const active = assignedPatients.filter((item) => item.patient.status !== "discharged").length;
+  const readyForDisposition = assignedPatients.filter((item) => item.disposition.current.toLowerCase().includes("admission") || item.disposition.current.toLowerCase().includes("discharge")).length;
+
+  return {
+    shiftLabel: user.role === "nurse" ? "Current bedside handover" : "Current shift handover",
+    previousClinician,
+    nextClinician,
+    previousSummary: `${previousClinician} handed over ${active} active patients, with ${critical} high-acuity cases and ${pendingResults} pending results requiring closure.`,
+    currentSummary: `${user.name} will hand over ${active} active patients, ${observation} in observation, and ${readyForDisposition} nearing a disposition decision.`,
+    stats: [
+      { label: "Active", value: String(active) },
+      { label: "Critical", value: String(critical) },
+      { label: "Pending Results", value: String(pendingResults) },
+      { label: "Observation", value: String(observation) },
+      { label: "Ready for Exit", value: String(readyForDisposition) },
+    ],
+    pendingItems: attentionList
+      .filter((item) => item.tone !== "steady")
+      .slice(0, 4)
+      .map((item) => ({
+        patientId: item.patientId,
+        patientName: item.patientName,
+        detail: item.reason,
+        flag: item.tone === "critical" ? "urgent" : "watch",
+      })),
+  };
+}
+
+function buildTatSeries(user: User, assignedPatients: PatientOverview[]) {
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const base = 42 + assignedPatients.length * 1.2 + (user.role === "nurse" ? 4 : 0);
+  return labels.map((label, index) => ({
+    label,
+    mine: Math.round(base + Math.sin(index * 0.9) * 6 + index),
+    department: Math.round(base + 9 + Math.cos(index * 0.7) * 5),
+  }));
+}
+
+function buildDispositionBreakdown(assignedPatients: PatientOverview[]) {
+  return [
+    { label: "Discharged", value: assignedPatients.filter((item) => item.patient.status === "discharged").length || 1, color: "var(--navy)" },
+    { label: "Observation", value: assignedPatients.filter((item) => item.patient.status === "obs").length || 1, color: "var(--urgent-safe)" },
+    { label: "Admitted", value: Math.max(1, Math.round(assignedPatients.length * 0.25)), color: "var(--amber-emerg)" },
+    { label: "Referred", value: Math.max(1, Math.round(assignedPatients.length * 0.12)), color: "var(--urgent-critical)" },
+  ];
+}
+
+function buildCaseloadSeries(assignedPatients: PatientOverview[]) {
+  const total = Math.max(assignedPatients.length, 1);
+  return ["Shift 1", "Shift 2", "Shift 3", "Shift 4", "Shift 5", "Shift 6"].map((label, index) => ({
+    label,
+    value: Math.max(1, Math.round(total - 1 + (index % 3) + (index / 3))),
+  }));
+}
+
+function buildMewsSeries(assignedPatients: PatientOverview[]) {
+  const sample = assignedPatients.slice(0, 6);
+  return sample.map((item, index) => ({
+    label: item.patient.name.split(" ")[0] ?? `P${index + 1}`,
+    admission: item.vitalsTimeline[0]?.mews ?? 4,
+    discharge: item.vitalsTimeline[item.vitalsTimeline.length - 1]?.mews ?? 2,
+  }));
+}
+
+function buildPathwayTatSeries(assignedPatients: PatientOverview[]) {
+  const labels = Array.from(new Set(assignedPatients.map((item) => item.patient.pathway.replace(" Protocol", "").replace(" Bundle", "")))).slice(0, 6);
+  return labels.map((label, index) => ({
+    label,
+    median: 58 + index * 9,
+    p90: 86 + index * 11,
+    target: 72 + index * 4,
+  }));
+}
+
+function buildTriageTrend(assignedPatients: PatientOverview[]) {
+  const base = Math.max(assignedPatients.length, 3);
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, index) => ({
+    label,
+    level1: Math.max(1, Math.round(base * 0.15 + (index % 2))),
+    level2: Math.max(1, Math.round(base * 0.28 + ((index + 1) % 3))),
+    level3: Math.max(1, Math.round(base * 0.35 + (index % 4))),
+  }));
+}
+
+function buildPathwayTrend(assignedPatients: PatientOverview[]) {
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const topPathways = Array.from(new Set(assignedPatients.map((item) => item.patient.pathway.replace(" Protocol", "").replace(" Bundle", "")))).slice(0, 3);
+  const padded = [...topPathways, "Trauma", "Stroke"].slice(0, 3);
+  return labels.map((label, index) => ({
+    label,
+    [padded[0]]: Math.max(1, 2 + (index % 3)),
+    [padded[1]]: Math.max(1, 1 + ((index + 1) % 4)),
+    [padded[2]]: Math.max(1, 1 + (index % 2)),
+  }));
+}
+
+function buildProtocolCompliance(assignedPatients: PatientOverview[]) {
+  const total = Math.max(assignedPatients.length, 1);
+  const critical = assignedPatients.filter((item) => item.patient.triage === 1).length;
+  return [
+    { label: "Initial assessment documented", value: Math.min(99, 88 + total), color: "var(--navy)" },
+    { label: "Pathway activated on time", value: Math.min(98, 84 + critical * 2), color: "var(--coral)" },
+    { label: "Orders reviewed within TAT", value: Math.min(97, 80 + total), color: "var(--amber-emerg)" },
+    { label: "Disposition note completed", value: Math.min(99, 82 + total), color: "var(--urgent-safe)" },
+  ];
 }
 
 function buildVitalsTimeline(patient: Patient, seed: number): VitalsPoint[] {
