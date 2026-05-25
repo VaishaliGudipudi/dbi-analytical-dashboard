@@ -1,5 +1,3 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import type {
   Diagnosis,
   EdSnapshot,
@@ -51,9 +49,6 @@ type PersistedEdDatabase = {
   workspaceDrafts: Record<string, PatientWorkspaceDraft>;
 };
 
-const DB_DIRECTORY = path.join(process.cwd(), "data");
-const DB_FILE = path.join(DB_DIRECTORY, "ed-patient-db.json");
-
 const defaultOutcomeDraft = (): OutcomeDraft => ({
   shiftedTo: "Discharge",
   patientStatus: "Alive",
@@ -103,31 +98,17 @@ function createSeedDatabase(): PersistedEdDatabase {
   };
 }
 
-async function ensureDatabaseFile() {
-  await mkdir(DB_DIRECTORY, { recursive: true });
-  try {
-    await readFile(DB_FILE, "utf8");
-  } catch {
-    await writeFile(DB_FILE, JSON.stringify(createSeedDatabase(), null, 2), "utf8");
-  }
-}
+// In-memory store. The serverless runtime has no writable filesystem,
+// so drafts live in module scope for the lifetime of the isolate.
+let memoryDb: PersistedEdDatabase | null = null;
 
 async function readDatabase(): Promise<PersistedEdDatabase> {
-  await ensureDatabaseFile();
-  const raw = await readFile(DB_FILE, "utf8");
-  const parsed = JSON.parse(raw) as Partial<PersistedEdDatabase>;
-  return {
-    patients: (parsed.patients ?? patientsTable).map((patient) => ({ ...patient })),
-    diagnoses: (parsed.diagnoses ?? diagnosisTable).map((diagnosis) => ({ ...diagnosis })),
-    workspaceDrafts: Object.fromEntries(
-      Object.entries(parsed.workspaceDrafts ?? {}).map(([patientId, draft]) => [patientId, cloneWorkspaceDraft(draft)]),
-    ),
-  };
+  if (!memoryDb) memoryDb = createSeedDatabase();
+  return memoryDb;
 }
 
 async function writeDatabase(database: PersistedEdDatabase) {
-  await ensureDatabaseFile();
-  await writeFile(DB_FILE, JSON.stringify(database, null, 2), "utf8");
+  memoryDb = database;
 }
 
 function wardForPatient(patient: Patient) {
