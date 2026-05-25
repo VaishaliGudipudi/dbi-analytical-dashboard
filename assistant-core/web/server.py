@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sys
 from http import HTTPStatus
@@ -13,14 +14,32 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from ai.copilot_service import CopilotService, CopilotServiceError
-from assistant_service import AssistantService
-from voice.listen import TranscriptionError
 
 
 INDEX_FILE = BASE_DIR / "index.html"
-assistant_service = AssistantService()
 copilot_service = CopilotService()
 DEFAULT_STOP_PHRASE = "apply changes"
+assistant_service = None
+assistant_service_error: Exception | None = None
+
+
+def get_assistant_service():
+    global assistant_service
+    global assistant_service_error
+
+    if assistant_service is not None:
+        return assistant_service
+    if assistant_service_error is not None:
+        raise assistant_service_error
+
+    try:
+        from assistant_service import AssistantService
+    except Exception as exc:  # pragma: no cover - optional runtime dependency path
+        assistant_service_error = exc
+        raise
+
+    assistant_service = AssistantService()
+    return assistant_service
 
 
 class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -34,6 +53,26 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
 
         if parsed_url.path in {"/", "/index.html"}:
             self._serve_index()
+            return
+
+        if parsed_url.path == "/styles.css":
+            self._serve_file("styles.css", "text/css")
+            return
+
+        if parsed_url.path == "/script.js":
+            self._serve_file("script.js", "application/javascript")
+            return
+
+        if parsed_url.path in {"/health", "/api/health"}:
+            self._send_json(
+                HTTPStatus.OK,
+                {
+                    "success": True,
+                    "status": "ok",
+                    "llm_provider": os.getenv("LLM_PROVIDER", "ollama"),
+                    "voice_available": assistant_service_error is None,
+                },
+            )
             return
 
         if parsed_url.path.startswith("/api/voice-cycle/status/"):
@@ -87,9 +126,32 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
+    def _serve_file(self, filename: str, content_type: str) -> None:
+        file_path = BASE_DIR / filename
+        try:
+            content = file_path.read_text(encoding="utf-8")
+            encoded = content.encode("utf-8")
+
+            self.send_response(HTTPStatus.OK)
+            self._set_cors_headers()
+            self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+        except FileNotFoundError:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                {"success": False, "error": f"File {filename} not found."},
+            )
+        except Exception as error:
+            self._send_json(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"success": False, "error": f"Error reading file: {error}"},
+            )
+
     def _start_voice_cycle(self) -> None:
         try:
-            job = assistant_service.start_voice_cycle()
+            job = get_assistant_service().start_voice_cycle()
             self._send_json(
                 HTTPStatus.ACCEPTED,
                 {
@@ -99,19 +161,21 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
                     "done": job.done,
                 },
             )
-        except TranscriptionError as error:
-            self._send_json(
-                HTTPStatus.BAD_REQUEST,
-                {"success": False, "error": str(error)},
-            )
         except Exception as error:
             self._send_json(
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"success": False, "error": f"Unexpected error: {error}"},
+                HTTPStatus.BAD_REQUEST,
+                {"success": False, "error": f"Voice features are unavailable: {error}"},
             )
 
     def _handle_voice_cycle_status(self, job_id: str) -> None:
-        job = assistant_service.get_job(job_id)
+        try:
+            job = get_assistant_service().get_job(job_id)
+        except Exception as error:
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                {"success": False, "error": f"Voice features are unavailable: {error}"},
+            )
+            return
         if job is None:
             self._send_json(
                 HTTPStatus.NOT_FOUND,
@@ -141,17 +205,12 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
                 suffix = ".ogg"
 
             audio_bytes = self.rfile.read(content_length)
-            result = assistant_service.process_browser_audio(audio_bytes, suffix=suffix)
+            result = get_assistant_service().process_browser_audio(audio_bytes, suffix=suffix)
             self._send_json(HTTPStatus.OK, result)
-        except TranscriptionError as error:
-            self._send_json(
-                HTTPStatus.BAD_REQUEST,
-                {"success": False, "error": str(error)},
-            )
         except Exception as error:
             self._send_json(
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"success": False, "error": f"Unexpected error: {error}"},
+                HTTPStatus.BAD_REQUEST,
+                {"success": False, "error": f"Voice features are unavailable: {error}"},
             )
 
     def _handle_copilot_command(self) -> None:
@@ -199,7 +258,7 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
                 suffix = ".ogg"
 
             audio_bytes = self.rfile.read(content_length)
-            transcript_result = assistant_service.process_browser_audio(audio_bytes, suffix=suffix)
+            transcript_result = get_assistant_service().process_browser_audio(audio_bytes, suffix=suffix)
             transcript = transcript_result.get("transcript", "").strip()
             stop_phrase = str(context.get("stop_phrase", DEFAULT_STOP_PHRASE)).strip()
             transcript = self._strip_stop_phrase(transcript, stop_phrase)
@@ -235,13 +294,8 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
                     **command_result,
                 },
             )
-        except (CopilotServiceError, TranscriptionError) as error:
+        except (CopilotServiceError, Exception) as error:
             self._send_json(HTTPStatus.BAD_REQUEST, {"success": False, "error": str(error)})
-        except Exception as error:
-            self._send_json(
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"success": False, "error": f"Unexpected error: {error}"},
-            )
 
     def _handle_copilot_summary(self) -> None:
         try:
@@ -301,9 +355,18 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
         return
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8000) -> None:
-    server = ThreadingHTTPServer((host, port), AssistantHTTPRequestHandler)
-    print(f"Dummy frontend running at http://{host}:{port}")
+def run_server(host: str | None = None, port: int | None = None) -> None:
+    resolved_host = host or os.getenv("HOST", "0.0.0.0")
+    resolved_port = port or int(os.getenv("PORT", "8000"))
+    try:
+        get_assistant_service()
+    except Exception as error:
+        global assistant_service_error
+        assistant_service_error = error
+        print(f"Voice features unavailable at startup: {error}")
+
+    server = ThreadingHTTPServer((resolved_host, resolved_port), AssistantHTTPRequestHandler)
+    print(f"Dummy frontend running at http://{resolved_host}:{resolved_port}")
     print("Open that URL in your browser, then click the button to test the voice pipeline.")
     server.serve_forever()
 

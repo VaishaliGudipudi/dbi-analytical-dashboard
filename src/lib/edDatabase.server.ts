@@ -1,4 +1,13 @@
-import type { Diagnosis, EdSnapshot, Patient, Ward } from "./edTypes";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import type {
+  Diagnosis,
+  EdSnapshot,
+  OutcomeDraft,
+  Patient,
+  PatientWorkspaceDraft,
+  Ward,
+} from "./edTypes";
 
 const wardCapacity: Record<string, number> = {
   Emergency: 20,
@@ -36,6 +45,91 @@ const diagnosisTable: Diagnosis[] = [
   { id: "other", label: "Other", icon: "General", severity: 3, pathway: "General Assessment", ward: "Observation" },
 ];
 
+type PersistedEdDatabase = {
+  patients: Patient[];
+  diagnoses: Diagnosis[];
+  workspaceDrafts: Record<string, PatientWorkspaceDraft>;
+};
+
+const DB_DIRECTORY = path.join(process.cwd(), "data");
+const DB_FILE = path.join(DB_DIRECTORY, "ed-patient-db.json");
+
+const defaultOutcomeDraft = (): OutcomeDraft => ({
+  shiftedTo: "Discharge",
+  patientStatus: "Alive",
+  provisionalDiagnosis: "",
+  course:
+    "The patient's provisional diagnosis was x. Documented comorbidities included none. The patient's last documented feed time was 2026-05-21 at 00:00. Personal history included smoking.",
+  carePlan: "",
+  summary: "",
+});
+
+function createEmptyWorkspaceDraft(): PatientWorkspaceDraft {
+  return {
+    formValues: {},
+    chiefComplaint: "",
+    vitals: {
+      sbp: "",
+      dbp: "",
+      hr: "",
+      rr: "",
+      spo2: "",
+      temp: "",
+      grbs: "",
+    },
+    orderedItems: [],
+    pathwayOverride: null,
+    outcome: defaultOutcomeDraft(),
+  };
+}
+
+function cloneWorkspaceDraft(draft?: Partial<PatientWorkspaceDraft> | null): PatientWorkspaceDraft {
+  const empty = createEmptyWorkspaceDraft();
+  return {
+    formValues: { ...empty.formValues, ...(draft?.formValues ?? {}) },
+    chiefComplaint: draft?.chiefComplaint ?? empty.chiefComplaint,
+    vitals: { ...empty.vitals, ...(draft?.vitals ?? {}) },
+    orderedItems: (draft?.orderedItems ?? empty.orderedItems).map((item) => ({ ...item })),
+    pathwayOverride: draft?.pathwayOverride ?? empty.pathwayOverride,
+    outcome: { ...empty.outcome, ...(draft?.outcome ?? {}) },
+  };
+}
+
+function createSeedDatabase(): PersistedEdDatabase {
+  return {
+    patients: patientsTable.map((patient) => ({ ...patient })),
+    diagnoses: diagnosisTable.map((diagnosis) => ({ ...diagnosis })),
+    workspaceDrafts: {},
+  };
+}
+
+async function ensureDatabaseFile() {
+  await mkdir(DB_DIRECTORY, { recursive: true });
+  try {
+    await readFile(DB_FILE, "utf8");
+  } catch {
+    await writeFile(DB_FILE, JSON.stringify(createSeedDatabase(), null, 2), "utf8");
+  }
+}
+
+async function readDatabase(): Promise<PersistedEdDatabase> {
+  await ensureDatabaseFile();
+  const raw = await readFile(DB_FILE, "utf8");
+  const parsed = JSON.parse(raw) as Partial<PersistedEdDatabase>;
+  return {
+    patients: (parsed.patients ?? patientsTable).map((patient) => ({ ...patient })),
+    diagnoses: (parsed.diagnoses ?? diagnosisTable).map((diagnosis) => ({ ...diagnosis })),
+    workspaceDrafts: Object.fromEntries(
+      Object.entries(parsed.workspaceDrafts ?? {}).map(([patientId, draft]) => [patientId, cloneWorkspaceDraft(draft)]),
+    ),
+  };
+}
+
+async function writeDatabase(database: PersistedEdDatabase) {
+  await ensureDatabaseFile();
+  await writeFile(DB_FILE, JSON.stringify(database, null, 2), "utf8");
+}
+
 function wardForPatient(patient: Patient) {
   if (patient.status === "discharged" || patient.bed === "-") return null;
   if (patient.bed.startsWith("OBS-")) return "Observation";
@@ -45,22 +139,49 @@ function wardForPatient(patient: Patient) {
   return "Emergency";
 }
 
-function getWardSnapshot(): Ward[] {
+function getWardSnapshot(patients: Patient[]): Ward[] {
   return Object.entries(wardCapacity).map(([name, total]) => ({
     name,
     total,
-    occupied: patientsTable.filter((patient) => wardForPatient(patient) === name).length,
+    occupied: patients.filter((patient) => wardForPatient(patient) === name).length,
   }));
 }
 
-export function getEdSnapshotFromDb(): EdSnapshot {
+export async function getEdSnapshotFromDb(): Promise<EdSnapshot> {
+  const database = await readDatabase();
   return {
-    patients: patientsTable.map((patient) => ({ ...patient })),
-    wards: getWardSnapshot(),
-    diagnoses: diagnosisTable.map((diagnosis) => ({ ...diagnosis })),
+    patients: database.patients.map((patient) => ({ ...patient })),
+    wards: getWardSnapshot(database.patients),
+    diagnoses: database.diagnoses.map((diagnosis) => ({ ...diagnosis })),
   };
 }
 
-export function getPatientFromDb(id: string) {
-  return patientsTable.find((patient) => patient.id === id) ?? null;
+export async function getPatientWorkspaceDraftFromDb(patientId: string): Promise<PatientWorkspaceDraft> {
+  const database = await readDatabase();
+  return cloneWorkspaceDraft(database.workspaceDrafts[patientId]);
+}
+
+export async function savePatientWorkspaceDraftToDb(
+  patientId: string,
+  draftPatch: Partial<PatientWorkspaceDraft>,
+): Promise<PatientWorkspaceDraft> {
+  const database = await readDatabase();
+  const current = cloneWorkspaceDraft(database.workspaceDrafts[patientId]);
+  const merged = cloneWorkspaceDraft({
+    ...current,
+    ...draftPatch,
+    formValues: { ...current.formValues, ...(draftPatch.formValues ?? {}) },
+    vitals: { ...current.vitals, ...(draftPatch.vitals ?? {}) },
+    orderedItems: draftPatch.orderedItems ?? current.orderedItems,
+    outcome: { ...current.outcome, ...(draftPatch.outcome ?? {}) },
+  });
+
+  database.workspaceDrafts[patientId] = merged;
+  await writeDatabase(database);
+  return cloneWorkspaceDraft(merged);
+}
+
+export async function getPatientFromDb(id: string) {
+  const database = await readDatabase();
+  return database.patients.find((patient) => patient.id === id) ?? null;
 }

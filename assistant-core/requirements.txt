@@ -1,4 +1,3 @@
-openai-whisper
-pyttsx3
-sounddevice
-numpy
+# Base backend requirements for Render-friendly text copilot mode.
+# Voice features are optional and can be installed separately with:
+# pip install -r requirements.voice.txt

@@ -5,7 +5,7 @@ import re
 from difflib import SequenceMatcher
 from typing import Any
 
-from ai.ollama_client import OllamaClient, OllamaError
+from ai.llm_client import LLMClient, LLMClientError
 
 
 class CopilotServiceError(Exception):
@@ -86,8 +86,8 @@ RECOMMENDATIONS_SCHEMA = {
 
 
 class CopilotService:
-    def __init__(self, ollama_client: OllamaClient | None = None) -> None:
-        self.ollama = ollama_client or OllamaClient()
+    def __init__(self, llm_client: LLMClient | None = None) -> None:
+        self.llm = llm_client or LLMClient()
 
     def parse_command(
         self,
@@ -170,9 +170,9 @@ class CopilotService:
 
     def _generate_json(self, *, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
         try:
-            raw = self.ollama.generate(system=system, prompt=prompt, format_schema=schema)
+            raw = self.llm.generate(system=system, prompt=prompt, format_schema=schema)
             return json.loads(raw)
-        except OllamaError as exc:
+        except LLMClientError as exc:
             raise CopilotServiceError(str(exc)) from exc
         except json.JSONDecodeError as exc:
             raise CopilotServiceError("The LLM returned invalid JSON.") from exc
@@ -336,6 +336,10 @@ class CopilotService:
                 actions.append({"intent": "open_tool", "tool": "Add Vitals"})
             actions.append({"intent": "apply_vitals", "vitals": extracted_vitals})
 
+        extracted_chief_complaint = self._extract_chief_complaint(normalized)
+        if extracted_chief_complaint:
+            actions.append({"intent": "apply_chief_complaint", "target": extracted_chief_complaint})
+
         inferred_pathway = self._infer_pathway_from_symptoms(normalized, available_pathways)
         if inferred_pathway is not None:
             actions.append({"intent": "select_pathway", "pathway": inferred_pathway})
@@ -363,6 +367,10 @@ class CopilotService:
                 response_parts.append("Preparing vitals entry.")
             if any(action["intent"] == "apply_vitals" for action in actions):
                 response_parts.append("Applying recognized vitals.")
+            if any(action["intent"] == "apply_chief_complaint" for action in actions):
+                chief_complaint = next((action.get("target") for action in actions if action["intent"] == "apply_chief_complaint"), None)
+                if chief_complaint:
+                    response_parts.append(f"Recording chief complaint as {chief_complaint}.")
             if any(action["intent"] == "select_pathway" for action in actions):
                 pathway_name = next((action.get("pathway") for action in actions if action["intent"] == "select_pathway"), None)
                 if pathway_name:
@@ -638,6 +646,48 @@ class CopilotService:
             vitals["grbs"] = grbs_match.group(1)
 
         return vitals
+
+    def _extract_chief_complaint(self, normalized_transcript: str) -> str | None:
+        """Extract chief complaint from normalized transcript."""
+        # Look for explicit patterns: "chief complaint is..." or "presenting with..."
+        explicit_patterns = [
+            r"chief complaint (?:is |as )?(.+?)(?:\.|$)",
+            r"presenting (?:with|complaint) (.+?)(?:\.|$)",
+            r"complain[ts]? (?:is |of )?(.+?)(?:\.|$)",
+        ]
+        
+        for pattern in explicit_patterns:
+            match = re.search(pattern, normalized_transcript, re.IGNORECASE)
+            if match:
+                complaint = match.group(1).strip()
+                if complaint:
+                    # Title case the complaint
+                    return " ".join(word.capitalize() for word in complaint.split())
+        
+        # Fall back to symptom keywords with title casing
+        symptom_patterns = [
+            (r"\bsnake bite\b", "Snake bite"),
+            (r"\bchest pain\b", "Chest pain"),
+            (r"\bstroke\b|\bfacial droop\b", "Stroke symptoms"),
+            (r"\bfever\b", "Fever"),
+            (r"\bcough\b", "Cough"),
+            (r"\bshortness of breath\b|\bdyspnea\b", "Shortness of breath"),
+            (r"\babdominal pain\b", "Abdominal pain"),
+            (r"\bnausea\b", "Nausea"),
+            (r"\bvomiting\b", "Vomiting"),
+            (r"\bbleeding\b", "Bleeding"),
+            (r"\bdizziness\b|\bdizzy\b", "Dizziness"),
+            (r"\bheadache\b", "Headache"),
+            (r"\btrauma\b", "Trauma"),
+            (r"\bsepsis\b", "Sepsis"),
+            (r"\bpoisoning\b", "Poisoning"),
+        ]
+        
+        for pattern, label in symptom_patterns:
+            if re.search(pattern, normalized_transcript, re.IGNORECASE):
+                return label
+        
+        return None
 
     def _generate_summary_locally(self, encounter_context: dict[str, Any]) -> dict[str, Any]:
         patient_name = encounter_context.get("patientName") or "the patient"

@@ -6,9 +6,11 @@ export type CopilotIntent =
   | "previous_step"
   | "open_tool"
   | "apply_vitals"
+  | "apply_chief_complaint"
   | "select_pathway"
   | "generate_summary"
   | "get_recommendations"
+  | "generate_analytics_chart"
   | "unknown";
 
 export type CopilotAction = {
@@ -47,6 +49,27 @@ export type CopilotRecommendation = {
   action: string;
 };
 
+export type CopilotChartSpec = {
+  title: string;
+  description?: string;
+  type: "bar" | "line" | "pie";
+  data: Array<Record<string, string | number>>;
+  xKey?: string;
+  series: Array<{
+    key: string;
+    label: string;
+    color: string;
+  }>;
+};
+
+export type CopilotChatMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  text: string;
+  chart?: CopilotChartSpec;
+  timestamp: string;
+};
+
 export type EncounterOrderItem = {
   category: "investigation" | "medication";
   name: string;
@@ -76,6 +99,7 @@ export type EncounterBindings = {
   previousStep?: () => void;
   openTool?: (tool: string) => void;
   applyVitals?: (vitals: Record<string, string>) => void;
+  applyChiefComplaint?: (chiefComplaint: string) => void;
   selectPathway?: (pathway: string) => void;
   addOrder?: (item: EncounterOrderItem) => void;
   runBundle?: (bundleId: string) => void;
@@ -87,4 +111,9 @@ export type RouteBindings = {
   availablePatients?: Array<{ id: string; name: string; bed?: string; status?: string }>;
   navigateRoute: (route: string) => void;
   openPatient?: (patientId: string) => void;
+};
+
+export type AnalyticsBindings = {
+  promptHint?: string;
+  buildChart: (prompt: string) => Promise<{ chart: CopilotChartSpec; responseText: string } | null>;
 };

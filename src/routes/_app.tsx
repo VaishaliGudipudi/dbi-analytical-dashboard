@@ -46,10 +46,8 @@ function AppShell() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [collapsed, setCollapsed] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
-  const [copilotPanelOpen, setCopilotPanelOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const copilotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) navigate({ to: "/" });
@@ -58,7 +56,6 @@ function AppShell() {
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
-      if (copilotRef.current && !copilotRef.current.contains(e.target as Node)) setCopilotPanelOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -80,20 +77,7 @@ function AppShell() {
             </div>
           </div>
             <div className="flex items-center gap-3">
-              <div className="relative" ref={copilotRef}>
-                <button
-                  onClick={() => setCopilotPanelOpen((open) => !open)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/20"
-                >
-                  <Stethoscope className="h-4 w-4" />
-                  Copilot
-                </button>
-                {copilotPanelOpen ? (
-                  <div className="absolute right-0 top-full mt-3 z-[60]">
-                    <EncounterCopilotDock floating={false} />
-                  </div>
-                ) : null}
-              </div>
+              <CopilotHeaderButton />
               {user.role === "analytics" ? (
                 <button onClick={() => setReportsOpen(true)}
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
@@ -156,9 +140,25 @@ function AppShell() {
             <Outlet />
           </main>
         </div>
+        <EncounterCopilotDock floating />
         {reportsOpen && <ReportsModal patients={patients} wards={wards} onClose={() => setReportsOpen(false)} />}
       </div>
     </CopilotProvider>
+  );
+}
+
+function CopilotHeaderButton() {
+  const { open, setOpen } = useCopilot();
+
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(!open)}
+      className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/20"
+    >
+      <Stethoscope className="h-4 w-4" />
+      Copilot
+    </button>
   );
 }
 

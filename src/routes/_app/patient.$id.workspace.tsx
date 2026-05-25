@@ -22,15 +22,20 @@ import { AddVitalsModal } from "@/components/app/AddVitalsModal";
 import { ScoringToolsModal } from "@/components/app/ScoringToolsModal";
 import { useCopilot } from "@/copilot/hooks/useCopilot";
 import type { CopilotRecommendation, EncounterOrderItem } from "@/copilot/types/copilot";
-import { getEdSnapshot } from "@/lib/edApi";
+import { getEdSnapshot, getPatientWorkspaceDraft, savePatientWorkspaceDraft } from "@/lib/edApi";
+import type { OutcomeDraft, PatientWorkspaceDraft } from "@/lib/edTypes";
 import { triageMeta } from "@/lib/edTypes";
 
 export const Route = createFileRoute("/_app/patient/$id/workspace")({
   loader: async ({ params }) => {
-    const snapshot = await getEdSnapshot();
+    const [snapshot, workspaceDraft] = await Promise.all([
+      getEdSnapshot(),
+      getPatientWorkspaceDraft({ data: { patientId: params.id } }),
+    ]);
     return {
       patient: snapshot.patients.find((item) => item.id === params.id) ?? snapshot.patients[0],
       patients: snapshot.patients,
+      workspaceDraft,
     };
   },
   component: Workspace,
@@ -161,12 +166,113 @@ const sectionCard = "bg-card rounded-2xl shadow-soft border border-border/70";
 const inputClass =
   "w-full rounded-xl border border-border bg-background/90 px-3 py-2 text-xs text-navy focus:outline-none focus:ring-2 focus:ring-coral/30";
 const selectClass = `${inputClass} appearance-none pr-8`;
+const COPILOT_PENDING_PATCH_KEY = "bioinsights-copilot-pending";
+
+function slugifyFieldKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+}
+
+function findPersistedFieldLabel(field: Element, container: HTMLElement) {
+  let current = field.parentElement;
+  while (current && current !== container) {
+    const directLabel = Array.from(current.children).find((child) => child.tagName === "LABEL");
+    if (directLabel?.textContent?.trim()) {
+      return directLabel.textContent.replace("*", "").trim();
+    }
+    current = current.parentElement;
+  }
+  return field.getAttribute("placeholder") ?? field.getAttribute("aria-label") ?? field.getAttribute("name") ?? field.id;
+}
+
+function buildPersistedFieldKey(
+  field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  container: HTMLElement,
+  counts: Map<string, number>,
+) {
+  const base = slugifyFieldKey(findPersistedFieldLabel(field, container) || field.tagName.toLowerCase());
+  const index = counts.get(base) ?? 0;
+  counts.set(base, index + 1);
+  return index === 0 ? base : `${base}_${index + 1}`;
+}
+
+function collectPersistedFormValues(container: HTMLElement | null) {
+  if (!container) return {};
+  const counts = new Map<string, number>();
+  const values: Record<string, string> = {};
+  const fields = Array.from(container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select"));
+
+  fields.forEach((field) => {
+    if (
+      field instanceof HTMLInputElement &&
+      ["button", "submit", "file"].includes(field.type)
+    ) return;
+    if (field instanceof HTMLInputElement && field.type === "hidden" && field.dataset.persistHidden !== "true") return;
+    const key = buildPersistedFieldKey(field, container, counts);
+    if (field instanceof HTMLInputElement && (field.type === "checkbox" || field.type === "radio")) {
+      if (field.checked) {
+        values[key] = field.value || "true";
+      }
+      return;
+    }
+    values[key] = field.value;
+  });
+
+  return values;
+}
+
+function applyPersistedFormValues(container: HTMLElement | null, formValues: Record<string, string>) {
+  if (!container) return;
+  const counts = new Map<string, number>();
+  const fields = Array.from(container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select"));
+
+  fields.forEach((field) => {
+    if (
+      field instanceof HTMLInputElement &&
+      ["button", "submit", "file"].includes(field.type)
+    ) return;
+    if (field instanceof HTMLInputElement && field.type === "hidden" && field.dataset.persistHidden !== "true") return;
+    const key = buildPersistedFieldKey(field, container, counts);
+    const nextValue = formValues[key];
+    if (nextValue == null) return;
+
+    if (field instanceof HTMLInputElement && (field.type === "checkbox" || field.type === "radio")) {
+      field.checked = nextValue === "true" || nextValue === field.value;
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+
+    if (field.value !== nextValue) {
+      field.value = nextValue;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+}
+
+function emptyOutcomeDraft(): OutcomeDraft {
+  return {
+    shiftedTo: "Discharge",
+    patientStatus: "Alive",
+    provisionalDiagnosis: "",
+    course:
+      "The patient's provisional diagnosis was x. Documented comorbidities included none. The patient's last documented feed time was 2026-05-21 at 00:00. Personal history included smoking.",
+    carePlan: "",
+    summary: "",
+  };
+}
 
 function Workspace() {
-  const { patient, patients } = Route.useLoaderData();
+  const { patient, patients, workspaceDraft } = Route.useLoaderData();
   const navigate = useNavigate();
   const { recommendations, requestRecommendations, setEncounterBindings, startVoiceCapture } = useCopilot();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const workspaceFormRef = useRef<HTMLElement | null>(null);
+  const hasAppliedDraftRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   const [step, setStep] = useState<StepId>("arrival");
   const [done, setDone] = useState<Record<StepId, boolean>>({
@@ -183,21 +289,30 @@ function Workspace() {
   const [showConsent, setShowConsent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [rapidMode, setRapidMode] = useState(false);
-  const [chiefComplaint, setChiefComplaint] = useState("");
-  const [orderedItems, setOrderedItems] = useState<OrderedItem[]>([
-    { category: "investigation", name: "CBC", requirement: "Essential", notes: "Initial ER panel" },
-    { category: "medication", name: "Paracetamol", requirement: "PRN", notes: "Symptomatic care if febrile/pain" },
-  ]);
-    const [vitals, setVitals] = useState({
-      sbp: "",
-      dbp: "",
-      hr: "",
-      rr: "",
-      spo2: "",
-      temp: "",
-      grbs: "",
-    });
-  const [pathwayOverride, setPathwayOverride] = useState<string | null>(null);
+  const [chiefComplaint, setChiefComplaint] = useState(() => workspaceDraft.chiefComplaint ?? "");
+  const [orderedItems, setOrderedItems] = useState<OrderedItem[]>(
+    () =>
+      workspaceDraft.orderedItems.length
+        ? workspaceDraft.orderedItems
+        : [
+            { category: "investigation", name: "CBC", requirement: "Essential", notes: "Initial ER panel" },
+            { category: "medication", name: "Paracetamol", requirement: "PRN", notes: "Symptomatic care if febrile/pain" },
+          ],
+  );
+  const [vitals, setVitals] = useState(() => ({
+    sbp: workspaceDraft.vitals?.sbp ?? "",
+    dbp: workspaceDraft.vitals?.dbp ?? "",
+    hr: workspaceDraft.vitals?.hr ?? "",
+    rr: workspaceDraft.vitals?.rr ?? "",
+    spo2: workspaceDraft.vitals?.spo2 ?? "",
+    temp: workspaceDraft.vitals?.temp ?? "",
+    grbs: workspaceDraft.vitals?.grbs ?? "",
+  }));
+  const [pathwayOverride, setPathwayOverride] = useState<string | null>(workspaceDraft.pathwayOverride ?? null);
+  const [outcomeDraft, setOutcomeDraft] = useState<OutcomeDraft>(() => ({
+    ...emptyOutcomeDraft(),
+    ...(workspaceDraft.outcome ?? {}),
+  }));
 
   const autoPathway = useMemo(() => {
     const cc = chiefComplaint.toLowerCase();
@@ -214,6 +329,108 @@ function Workspace() {
 
   const pathway = pathwayOverride ?? autoPathway;
   const isOverride = pathwayOverride !== null && pathwayOverride !== autoPathway;
+
+  useEffect(() => {
+    setChiefComplaint(workspaceDraft.chiefComplaint ?? "");
+    setOrderedItems(
+      workspaceDraft.orderedItems.length
+        ? workspaceDraft.orderedItems
+        : [
+            { category: "investigation", name: "CBC", requirement: "Essential", notes: "Initial ER panel" },
+            { category: "medication", name: "Paracetamol", requirement: "PRN", notes: "Symptomatic care if febrile/pain" },
+          ],
+    );
+    setVitals({
+      sbp: workspaceDraft.vitals?.sbp ?? "",
+      dbp: workspaceDraft.vitals?.dbp ?? "",
+      hr: workspaceDraft.vitals?.hr ?? "",
+      rr: workspaceDraft.vitals?.rr ?? "",
+      spo2: workspaceDraft.vitals?.spo2 ?? "",
+      temp: workspaceDraft.vitals?.temp ?? "",
+      grbs: workspaceDraft.vitals?.grbs ?? "",
+    });
+    setPathwayOverride(workspaceDraft.pathwayOverride ?? null);
+    setOutcomeDraft({
+      ...emptyOutcomeDraft(),
+      ...(workspaceDraft.outcome ?? {}),
+    });
+    hasAppliedDraftRef.current = false;
+  }, [workspaceDraft]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const pendingRaw = window.sessionStorage.getItem(`${COPILOT_PENDING_PATCH_KEY}:${patient.id}`);
+    if (!pendingRaw) return;
+
+    try {
+      const pending = JSON.parse(pendingRaw) as {
+        chiefComplaint?: string;
+        vitals?: Record<string, string>;
+      };
+
+      if (pending.chiefComplaint) {
+        setChiefComplaint(pending.chiefComplaint);
+        setStep("clinical");
+      }
+
+      if (pending.vitals) {
+        setVitals((current) => ({
+          ...current,
+          ...pending.vitals,
+        }));
+        setStep("triage");
+      }
+
+      window.sessionStorage.removeItem(`${COPILOT_PENDING_PATCH_KEY}:${patient.id}`);
+    } catch {
+      window.sessionStorage.removeItem(`${COPILOT_PENDING_PATCH_KEY}:${patient.id}`);
+    }
+  }, [patient.id]);
+
+  useEffect(() => {
+    if (!workspaceFormRef.current || hasAppliedDraftRef.current) return;
+    applyPersistedFormValues(workspaceFormRef.current, workspaceDraft.formValues ?? {});
+    hasAppliedDraftRef.current = true;
+  }, [workspaceDraft.formValues]);
+
+  useEffect(() => {
+    if (!workspaceFormRef.current) return;
+
+    const scheduleSave = () => {
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+      }
+
+      saveTimerRef.current = window.setTimeout(() => {
+        void savePatientWorkspaceDraft({
+          data: {
+            patientId: patient.id,
+            draft: {
+              chiefComplaint,
+              vitals,
+              orderedItems,
+              pathwayOverride,
+              outcome: outcomeDraft,
+              formValues: collectPersistedFormValues(workspaceFormRef.current),
+            },
+          },
+        });
+      }, 350);
+    };
+
+    const root = workspaceFormRef.current;
+    root.addEventListener("input", scheduleSave);
+    root.addEventListener("change", scheduleSave);
+    scheduleSave();
+
+    return () => {
+      root.removeEventListener("input", scheduleSave);
+      root.removeEventListener("change", scheduleSave);
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [chiefComplaint, orderedItems, outcomeDraft, pathwayOverride, patient.id, vitals]);
 
   const goNext = () => {
     setDone({ ...done, [step]: true });
@@ -317,8 +534,13 @@ function Workspace() {
           ...current,
           ...nextVitals,
         }));
-        setShowVitals(true);
-        setNotice("Copilot applied recognized vitals to the triage context. Please review and confirm.");
+        setShowVitals(false);
+        setNotice("Copilot applied recognized vitals to the triage context.");
+      },
+      applyChiefComplaint: (nextChiefComplaint) => {
+        setStep("clinical");
+        setChiefComplaint(nextChiefComplaint);
+        setNotice(`Copilot recorded chief complaint as "${nextChiefComplaint}".`);
       },
       selectPathway: (nextPathway) => {
         const match = CARE_PATHWAYS.find((item) => item.toLowerCase() === nextPathway.toLowerCase());
@@ -411,7 +633,7 @@ function Workspace() {
           <CarePathwayRail step={step} setStep={setStep} />
         </aside>
 
-        <main className="space-y-4">
+        <main ref={workspaceFormRef} className="space-y-4">
           <div className={`${shellCard} flex items-center gap-2 p-2`}>
             <button
               type="button"
@@ -459,7 +681,14 @@ function Workspace() {
             <MedicationOrderSet pathway={pathway} onOrder={(item) => setOrderedItems((current) => [...current, item])} />
           </Collapsible>
           <Collapsible title="6. ER Outcome" open={step === "outcome"} onToggle={() => setStep("outcome")}>
-            <EROutcomeFlow patientName={patient.name} pathway={pathway} orderedItems={orderedItems} chiefComplaint={chiefComplaint} />
+            <EROutcomeFlow
+              patientName={patient.name}
+              pathway={pathway}
+              orderedItems={orderedItems}
+              chiefComplaint={chiefComplaint}
+              outcomeDraft={outcomeDraft}
+              onOutcomeDraftChange={setOutcomeDraft}
+            />
           </Collapsible>
 
           <div className={`${shellCard} sticky bottom-4 flex flex-wrap items-center justify-between gap-3 px-5 py-4`}>
@@ -826,6 +1055,7 @@ function SegmentedControl({ options, defaultValue }: { options: string[]; defaul
   const [value, setValue] = useState(defaultValue);
   return (
     <div className="inline-flex flex-wrap overflow-hidden rounded-xl border border-border bg-background">
+      <input type="hidden" value={value} readOnly data-persist-hidden="true" />
       {options.map((option) => {
         const active = value === option;
         return (
@@ -1033,6 +1263,7 @@ function TriageForm({
         <div className="mb-4">
           <L label="Patient Condition at Arrival" req>
             <div className="flex flex-wrap gap-2">
+              <input type="hidden" value={cond} readOnly data-persist-hidden="true" />
               {["Alert", "Verbal", "Pain", "Unconsciousness"].map((c) => (
                 <button
                   key={c}
@@ -1078,6 +1309,7 @@ function TriageForm({
         </div>
         <L label="Pain Score (0-10)">
           <div className="grid grid-cols-6 gap-2 md:grid-cols-11">
+            <input type="hidden" value={String(score)} readOnly data-persist-hidden="true" />
             {Array.from({ length: 11 }).map((_, i) => (
               <button
                 key={i}
@@ -1096,6 +1328,7 @@ function TriageForm({
 
       <Card title="Triage Level Detection">
         <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <input type="hidden" value={manualTriage == null ? "" : String(manualTriage)} readOnly data-persist-hidden="true" />
           <div className="rounded-2xl bg-secondary/35 p-4">
             <div className="mb-2 text-sm font-bold text-navy">Stratification</div>
             <div className="space-y-1 text-sm text-muted-foreground">
@@ -1897,6 +2130,7 @@ function FastChecklist({ options }: { options: string[] }) {
   const [selected, setSelected] = useState<string[]>([]);
   return (
     <div className="flex flex-wrap gap-2">
+      <input type="hidden" value={selected.join(", ")} readOnly data-persist-hidden="true" />
       {options.map((option) => {
         const active = selected.includes(option);
         return (
@@ -2209,20 +2443,17 @@ function EROutcomeFlow({
   pathway,
   orderedItems,
   chiefComplaint,
+  outcomeDraft,
+  onOutcomeDraftChange,
 }: {
   patientName: string;
   pathway: string;
   orderedItems: OrderedItem[];
   chiefComplaint: string;
+  outcomeDraft: OutcomeDraft;
+  onOutcomeDraftChange: Dispatch<SetStateAction<OutcomeDraft>>;
 }) {
-  const [shiftedTo, setShiftedTo] = useState("Discharge");
-  const [patientStatus, setPatientStatus] = useState("Alive");
-  const [provisionalDiagnosis, setProvisionalDiagnosis] = useState("");
-  const [course, setCourse] = useState(
-    "The patient's provisional diagnosis was x. Documented comorbidities included none. The patient's last documented feed time was 2026-05-21 at 00:00. Personal history included smoking.",
-  );
-  const [carePlan, setCarePlan] = useState("");
-  const [summary, setSummary] = useState("");
+  const { shiftedTo, patientStatus, provisionalDiagnosis, course, carePlan, summary } = outcomeDraft;
   const investigations = orderedItems.filter((item) => item.category === "investigation");
   const medications = orderedItems.filter((item) => item.category === "medication");
   const reportText = buildDischargeSummaryText({
@@ -2251,7 +2482,7 @@ function EROutcomeFlow({
   });
 
   const generateSummary = () => {
-    setSummary(reportText);
+    onOutcomeDraftChange((current) => ({ ...current, summary: reportText }));
   };
 
   return (
@@ -2265,12 +2496,12 @@ function EROutcomeFlow({
               <ReadOnly label="Care Pathway" value={pathway} />
             </div>
             <L label="Provisional Diagnosis" req>
-              <textarea value={provisionalDiagnosis} onChange={(event) => setProvisionalDiagnosis(event.target.value)} rows={2} className={inputClass} placeholder="Provisional Diagnosis" />
+              <textarea value={provisionalDiagnosis} onChange={(event) => onOutcomeDraftChange((current) => ({ ...current, provisionalDiagnosis: event.target.value }))} rows={2} className={inputClass} placeholder="Provisional Diagnosis" />
             </L>
             <L label="Course in ER" req>
-              <textarea value={course} onChange={(event) => setCourse(event.target.value)} rows={4} className={inputClass} placeholder="Course in ER" />
+              <textarea value={course} onChange={(event) => onOutcomeDraftChange((current) => ({ ...current, course: event.target.value }))} rows={4} className={inputClass} placeholder="Course in ER" />
             </L>
-            <button type="button" onClick={() => setCourse(`The patient's provisional diagnosis was ${provisionalDiagnosis || "not documented"}. Chief complaint: ${chiefComplaint || "not documented"}. ${investigations.length} investigation(s) and ${medications.length} medication order(s) were documented in ER.`)} className="rounded-full border border-coral px-4 py-2 text-xs font-bold text-coral hover:bg-coral/10">
+            <button type="button" onClick={() => onOutcomeDraftChange((current) => ({ ...current, course: `The patient's provisional diagnosis was ${provisionalDiagnosis || "not documented"}. Chief complaint: ${chiefComplaint || "not documented"}. ${investigations.length} investigation(s) and ${medications.length} medication order(s) were documented in ER.` }))} className="rounded-full border border-coral px-4 py-2 text-xs font-bold text-coral hover:bg-coral/10">
               Regenerate Course in ER
             </button>
           </div>
@@ -2305,19 +2536,19 @@ function EROutcomeFlow({
         <OutcomeAccordion title="ER Discharge Options">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <L label="Care Plan Given by ER Physician" req>
-              <textarea value={carePlan} onChange={(event) => setCarePlan(event.target.value)} rows={3} className={inputClass} placeholder="Care Plan Given by ER Physician" />
+              <textarea value={carePlan} onChange={(event) => onOutcomeDraftChange((current) => ({ ...current, carePlan: event.target.value }))} rows={3} className={inputClass} placeholder="Care Plan Given by ER Physician" />
             </L>
             <L label="ER Physician" req>
               <input className={inputClass} placeholder="Search ER Physicians..." defaultValue="Dr. Tejaswi" />
             </L>
             <L label="Patient Status" req>
-              <select value={patientStatus} onChange={(event) => setPatientStatus(event.target.value)} className={selectClass}>
+              <select value={patientStatus} onChange={(event) => onOutcomeDraftChange((current) => ({ ...current, patientStatus: event.target.value }))} className={selectClass}>
                 <option>Alive</option>
                 <option>Dead</option>
               </select>
             </L>
             <L label="Shifted from ER to" req>
-              <select value={shiftedTo} onChange={(event) => setShiftedTo(event.target.value)} className={selectClass}>
+              <select value={shiftedTo} onChange={(event) => onOutcomeDraftChange((current) => ({ ...current, shiftedTo: event.target.value }))} className={selectClass}>
                 {["ICU", "Cathlab", "OT", "Observation", "In Patient Ward", "Discharge", "LAMA", "Outside Referral"].map((option) => <option key={option}>{option}</option>)}
               </select>
             </L>
@@ -2361,7 +2592,7 @@ function EROutcomeFlow({
                 medications={medications}
               />
               <L label="Editable plain text copy">
-                <textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={12} className={`${inputClass} font-mono`} />
+                <textarea value={summary} onChange={(event) => onOutcomeDraftChange((current) => ({ ...current, summary: event.target.value }))} rows={12} className={`${inputClass} font-mono`} />
               </L>
             </div>
           </OutcomeAccordion>
@@ -2730,6 +2961,7 @@ function ABC({
       <div className="space-y-3 p-3">
         <L label="Status" req>
           <div className="grid gap-1 sm:grid-cols-2">
+            <input type="hidden" value={status} readOnly data-persist-hidden="true" />
             {[clearLabel, concernLabel].map((option) => {
               const active = status === option;
               const isClear = option === clearLabel;

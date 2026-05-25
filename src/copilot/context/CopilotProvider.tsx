@@ -7,7 +7,9 @@ import {
 } from "@/copilot/services/copilotApi";
 import { useVoiceSession } from "@/copilot/hooks/useVoiceSession";
 import type {
+  AnalyticsBindings,
   CopilotAction,
+  CopilotChatMessage,
   CopilotCommandResult,
   CopilotRecommendation,
   EncounterBindings,
@@ -30,8 +32,13 @@ type CopilotContextValue = {
   voiceSupported: boolean;
   voicePermissionState: "unknown" | "granted" | "denied" | "prompt";
   voiceLastError: string;
+  messages: CopilotChatMessage[];
+  clearHistory: () => void;
+  startNewChat: () => void;
+  analyticsBindings: AnalyticsBindings | null;
   routeBindings: RouteBindings | null;
   encounterBindings: EncounterBindings | null;
+  setAnalyticsBindings: (bindings: AnalyticsBindings | null) => void;
   setRouteBindings: (bindings: RouteBindings | null) => void;
   setEncounterBindings: (bindings: EncounterBindings | null) => void;
   runCommand: (transcript?: string) => Promise<void>;
@@ -43,6 +50,14 @@ type CopilotContextValue = {
 };
 
 const CopilotContext = createContext<CopilotContextValue | null>(null);
+const COPILOT_PENDING_PATCH_KEY = "bioinsights-copilot-pending";
+const COPILOT_CHAT_HISTORY_KEY = "bioinsights-copilot-history";
+const WELCOME_MESSAGE: CopilotChatMessage = {
+  id: "copilot-welcome",
+  role: "assistant",
+  text: "Copilot is ready. Use text or voice. I can chain actions like opening a patient, moving sections, and applying vitals in one request.",
+  timestamp: new Date().toISOString(),
+};
 
 function normalizeTranscript(value: string): string {
   return value
@@ -53,36 +68,46 @@ function normalizeTranscript(value: string): string {
     .trim();
 }
 
-function extractVitalsFromTranscript(normalized: string): Record<string, string> {
+function normalizeClinicalTranscript(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/['â€™]s\b/g, "")
+    .replace(/[,:;]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractVitalsFromTranscript(transcript: string): Record<string, string> {
+  const normalized = normalizeClinicalTranscript(transcript);
   const vitals: Record<string, string> = {};
 
-  const bpMatch = normalized.match(/(?:bp|blood pressure)\s*(?:is\s*)?(\d{2,3})\s*(?:by|over|\/)\s*(\d{2,3})/);
+  const bpMatch = normalized.match(/(?:bp|blood pressure)(?:\s*(?:is|of|at))?\s*(\d{2,3})\s*(?:by|over|\/)\s*(\d{2,3})/);
   if (bpMatch) {
     vitals.sbp = bpMatch[1];
     vitals.dbp = bpMatch[2];
   }
 
-  const spo2Match = normalized.match(/(?:oxygen(?: levels?)?|spo2|saturation)\s*(?:is\s*)?(\d{2,3}(?:\.\d+)?)/);
+  const spo2Match = normalized.match(/(?:oxygen(?: levels?| saturation)?|o2 sat|spo2|saturation)(?:\s*(?:is|of|at))?\s*(\d{2,3}(?:\.\d+)?)/);
   if (spo2Match) {
     vitals.spo2 = spo2Match[1];
   }
 
-  const tempMatch = normalized.match(/(?:temperature|temp)\s*(?:is\s*)?(\d{2,3}(?:\.\d+)?)/);
+  const tempMatch = normalized.match(/(?:temperature|temp)(?:\s*(?:is|of|at))?\s*(\d{2,3}(?:\.\d+)?)/);
   if (tempMatch) {
     vitals.temp = tempMatch[1];
   }
 
-  const hrMatch = normalized.match(/(?:heart rate|pulse|hr)\s*(?:is\s*)?(\d{2,3}(?:\.\d+)?)/);
+  const hrMatch = normalized.match(/(?:heart rate|pulse rate|pulse|pr|hr)(?:\s*(?:is|of|at))?\s*(\d{2,3}(?:\.\d+)?)/);
   if (hrMatch) {
     vitals.hr = hrMatch[1];
   }
 
-  const rrMatch = normalized.match(/(?:respiratory rate|resp rate|rr)\s*(?:is\s*)?(\d{1,2}(?:\.\d+)?)/);
+  const rrMatch = normalized.match(/(?:respiratory rate|resp rate|resp|breaths per minute|rr)(?:\s*(?:is|of|at))?\s*(\d{1,2}(?:\.\d+)?)/);
   if (rrMatch) {
     vitals.rr = rrMatch[1];
   }
 
-  const grbsMatch = normalized.match(/(?:grbs|blood sugar|glucose)\s*(?:is\s*)?(\d{2,3}(?:\.\d+)?)/);
+  const grbsMatch = normalized.match(/(?:grbs|blood sugar|random blood sugar|glucose)(?:\s*(?:is|of|at))?\s*(\d{2,3}(?:\.\d+)?)/);
   if (grbsMatch) {
     vitals.grbs = grbsMatch[1];
   }
@@ -110,19 +135,249 @@ function dedupeActions(actions: CopilotAction[]): CopilotAction[] {
   });
 }
 
+function inferPatientAction(
+  transcript: string,
+  patients: RouteBindings["availablePatients"] | EncounterContext["availablePatients"] | undefined,
+): CopilotAction | null {
+  if (!patients?.length) return null;
+  const normalizedTranscript = normalizeTranscript(transcript);
+  if (!/\b(open|show|take me to|go to|patient|file|chart|workspace|record)\b/.test(normalizedTranscript)) {
+    return null;
+  }
+
+  const matches = patients
+    .map((patient) => {
+      const normalizedName = normalizeTranscript(patient.name);
+      const tokens = normalizedName.split(" ");
+      const hits = tokens.filter((token) => normalizedTranscript.includes(token)).length;
+      const firstName = tokens[0] ?? "";
+      const score = normalizedTranscript.includes(normalizedName)
+        ? 100
+        : hits * 10 + (firstName && normalizedTranscript.includes(firstName) ? 5 : 0);
+      return { patient, score, hits };
+    })
+    .filter((entry) => entry.hits > 0)
+    .sort((a, b) => b.score - a.score || a.patient.name.localeCompare(b.patient.name));
+
+  const best = matches[0];
+  if (!best || best.score < 10) return null;
+
+  return {
+    intent: "open_patient",
+    patient_id: best.patient.id,
+    patient_name: best.patient.name,
+  };
+}
+
+function trimChiefComplaintTail(value: string): string {
+  return value
+    .replace(
+      /\s+(?:and\s+)?(?:vitals?|bp|blood pressure|hr|heart rate|pulse|rr|respiratory rate|resp rate|spo2|saturation|temp|temperature|grbs|glucose|blood sugar)\b[\s\S]*$/i,
+      "",
+    )
+    .trim();
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function sanitizeChiefComplaint(value: string) {
+  return toTitleCase(
+    value
+      .replace(/^(?:of|for|as|is)\s+/i, "")
+      .replace(/\s+(?:please|now|today)$/i, "")
+      .trim(),
+  );
+}
+
+function extractChiefComplaintFromTranscript(transcript: string): string {
+  const normalized = normalizeClinicalTranscript(transcript);
+  const explicitMatch = normalized.match(
+    /(?:chief complaint|complaint|presenting with|presenting complaint|symptoms?)(?:\s+(?:is|as|of))?\s+(.+)$/,
+  );
+  if (explicitMatch?.[1]) {
+    return sanitizeChiefComplaint(trimChiefComplaintTail(explicitMatch[1]));
+  }
+
+  const fallbackPatterns = [
+    { test: /\bchest pain\b/, value: "Chest pain" },
+    { test: /\bshortness of breath\b|\bbreathlessness\b|\bdyspnea\b/, value: "Shortness of breath" },
+    { test: /\bstroke\b|\bfacial droop\b|\bone sided weakness\b|\bslurred speech\b/, value: "Stroke symptoms" },
+    { test: /\bsnake bite\b|\bsnakebite\b/, value: "Snake bite" },
+    { test: /\bpoisoning\b|\boverdose\b/, value: "Poisoning" },
+    { test: /\btrauma\b|\baccident\b/, value: "Trauma" },
+    { test: /\bfever\b/, value: "Fever" },
+    { test: /\bcough\b/, value: "Cough" },
+    { test: /\bheadache\b/, value: "Headache or migraine" },
+    { test: /\bdizziness\b/, value: "Dizziness" },
+    { test: /\bweakness\b/, value: "Weakness" },
+  ];
+
+  const fallbackPhraseMatch = normalized.match(
+    /(?:open|show|go to|take me to)?\s*patient\s+[a-z\s]+?\s+and\s+(?:enter|record|add|update|fill)?\s*(?:the\s+)?chief complaint(?:\s+(?:is|as|of))?\s+(.+)$/,
+  );
+  if (fallbackPhraseMatch?.[1]) {
+    return sanitizeChiefComplaint(trimChiefComplaintTail(fallbackPhraseMatch[1]));
+  }
+
+  return fallbackPatterns.find((pattern) => pattern.test.test(normalized))?.value ?? "";
+}
+
+function loadPersistedMessages() {
+  if (typeof window === "undefined") {
+    return [WELCOME_MESSAGE];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(COPILOT_CHAT_HISTORY_KEY);
+    if (!raw) {
+      return [WELCOME_MESSAGE];
+    }
+
+    const parsed = JSON.parse(raw) as CopilotChatMessage[];
+    const cleaned = parsed.filter(
+      (message) =>
+        message &&
+        typeof message.id === "string" &&
+        typeof message.role === "string" &&
+        typeof message.text === "string" &&
+        typeof message.timestamp === "string",
+    );
+
+    return cleaned.length ? cleaned : [WELCOME_MESSAGE];
+  } catch {
+    return [WELCOME_MESSAGE];
+  }
+}
+
+function buildDeterministicCommand(
+  transcript: string,
+  availablePatients: RouteBindings["availablePatients"] | EncounterContext["availablePatients"] | undefined,
+): CopilotCommandResult | null {
+  const normalizedTranscript = normalizeTranscript(transcript);
+  const patientAction = inferPatientAction(transcript, availablePatients);
+  const vitals = extractVitalsFromTranscript(transcript);
+  const chiefComplaint = extractChiefComplaintFromTranscript(transcript);
+
+  if (!patientAction && !Object.keys(vitals).length && !chiefComplaint) {
+    return null;
+  }
+
+  const actions: CopilotAction[] = [];
+  if (patientAction) {
+    actions.push(patientAction);
+  }
+  if (chiefComplaint) {
+    actions.push({ intent: "navigate_section", target: "Clinical Assessment" });
+    actions.push({ intent: "apply_chief_complaint", target: chiefComplaint });
+  }
+  if (Object.keys(vitals).length) {
+    actions.push({ intent: "open_tool", tool: "Add Vitals" });
+    actions.push({ intent: "apply_vitals", vitals });
+  }
+
+  const primary = actions[0] ?? { intent: "unknown" as const };
+  const responseParts: string[] = [];
+  if (patientAction?.patient_name) {
+    responseParts.push(`Opening ${patientAction.patient_name}'s file.`);
+  }
+  if (chiefComplaint) {
+    responseParts.push(`Recording chief complaint as ${chiefComplaint}.`);
+  }
+  if (Object.keys(vitals).length) {
+    responseParts.push("Preparing vitals entry.");
+    responseParts.push("Applying recognized vitals.");
+  }
+
+  return {
+    success: true,
+    intent: primary.intent,
+    patient_id: patientAction?.patient_id,
+    patient_name: patientAction?.patient_name,
+    tool: actions.find((action) => action.intent === "open_tool")?.tool,
+    target: chiefComplaint,
+    vitals: Object.keys(vitals).length ? vitals : undefined,
+    actions,
+    response_text: responseParts.join(" "),
+    confidence: 0.99,
+  };
+}
+
+function persistPendingEncounterPatch(
+  patientId: string,
+  actions: NonNullable<CopilotCommandResult["actions"]>,
+) {
+  if (typeof window === "undefined") return;
+
+  const vitals = actions.find((action) => action.intent === "apply_vitals")?.vitals;
+  const chiefComplaint = actions.find((action) => action.intent === "apply_chief_complaint")?.target;
+
+  if (!vitals && !chiefComplaint) return;
+
+  window.sessionStorage.setItem(
+    `${COPILOT_PENDING_PATCH_KEY}:${patientId}`,
+    JSON.stringify({
+      vitals,
+      chiefComplaint,
+    }),
+  );
+}
+
 export function CopilotProvider({ children }: { children: React.ReactNode }) {
   const stopPhrase = "apply changes";
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("Copilot ready.");
   const [lastCommand, setLastCommand] = useState<CopilotCommandResult | null>(null);
   const [summary, setSummary] = useState("");
   const [missingItems, setMissingItems] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<CopilotRecommendation[]>([]);
+  const [messages, setMessages] = useState<CopilotChatMessage[]>(() => loadPersistedMessages());
   const [busy, setBusy] = useState(false);
   const [pendingActions, setPendingActions] = useState<NonNullable<CopilotCommandResult["actions"]>>([]);
+  const [pendingEncounterPatientId, setPendingEncounterPatientId] = useState<string | null>(null);
   const [routeBindings, setRouteBindings] = useState<RouteBindings | null>(null);
   const [encounterBindings, setEncounterBindings] = useState<EncounterBindings | null>(null);
+  const [analyticsBindings, setAnalyticsBindings] = useState<AnalyticsBindings | null>(null);
+
+  const pushMessage = useCallback((message: Omit<CopilotChatMessage, "id" | "timestamp">) => {
+    setMessages((current) => [
+      ...current,
+      {
+        id: `${message.role}-${Date.now()}-${current.length}`,
+        timestamp: new Date().toISOString(),
+        ...message,
+      },
+    ]);
+  }, []);
+  const clearHistory = useCallback(() => {
+    setMessages([WELCOME_MESSAGE]);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(COPILOT_CHAT_HISTORY_KEY);
+    }
+  }, []);
+  const startNewChat = useCallback(() => {
+    setInput("");
+    setStatus("Copilot ready.");
+    setLastCommand(null);
+    setSummary("");
+    setMissingItems([]);
+    setRecommendations([]);
+    setPendingActions([]);
+    setPendingEncounterPatientId(null);
+    setMessages([
+      {
+        ...WELCOME_MESSAGE,
+        id: `copilot-welcome-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+  }, []);
   const enrichCommandResult = useCallback(
     (result: CopilotCommandResult, transcriptText: string, encounterContext?: EncounterContext): CopilotCommandResult => {
       const normalized = normalizeTranscript(transcriptText);
@@ -145,7 +400,19 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
 
       const extractedVitals = Object.keys(result.vitals ?? {}).length
         ? result.vitals ?? {}
-        : extractVitalsFromTranscript(normalized);
+        : extractVitalsFromTranscript(transcriptText);
+
+      const extractedChiefComplaint = result.target ||
+        actions.find((action) => action.intent === "apply_chief_complaint")?.target ||
+        extractChiefComplaintFromTranscript(transcriptText);
+
+      const inferredPatient = !actions.some((action) => action.intent === "open_patient")
+        ? inferPatientAction(transcriptText, encounterContext?.availablePatients ?? routeBindings?.availablePatients)
+        : null;
+
+      if (inferredPatient) {
+        actions.unshift(inferredPatient);
+      }
 
       if (Object.keys(extractedVitals).length) {
         const hasOpenVitalsTool = actions.some(
@@ -159,6 +426,14 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
 
         if (!hasApplyVitals) {
           actions.push({ intent: "apply_vitals", vitals: extractedVitals });
+        }
+      }
+
+      if (extractedChiefComplaint) {
+        const hasApplyChiefComplaint = actions.some((action) => action.intent === "apply_chief_complaint");
+
+        if (!hasApplyChiefComplaint) {
+          actions.push({ intent: "apply_chief_complaint", target: extractedChiefComplaint });
         }
       }
 
@@ -189,16 +464,34 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
 
       const dedupedActions = dedupeActions(actions);
       const primary = dedupedActions[0];
-      const responseParts = [result.response_text];
+      const responseParts: string[] = [];
+      if (primary?.intent === "open_patient" && primary.patient_name) {
+        responseParts.push(`Opening ${primary.patient_name}'s file.`);
+      } else if (result.response_text) {
+        responseParts.push(result.response_text);
+      }
       if (dedupedActions.length > 1) {
-        if (dedupedActions.some((action) => action.intent === "open_tool" && action.tool?.toLowerCase().includes("vitals"))) {
+        if (
+          dedupedActions.some((action) => action.intent === "open_tool" && action.tool?.toLowerCase().includes("vitals")) &&
+          !responseParts.some((part) => part.includes("Preparing vitals entry"))
+        ) {
           responseParts.push("Preparing vitals entry.");
         }
-        if (dedupedActions.some((action) => action.intent === "apply_vitals")) {
+        if (
+          dedupedActions.some((action) => action.intent === "apply_vitals") &&
+          !responseParts.some((part) => part.includes("Applying recognized vitals"))
+        ) {
           responseParts.push("Applying recognized vitals.");
         }
+        const chiefComplaintAction = dedupedActions.find((action) => action.intent === "apply_chief_complaint");
+        if (
+          chiefComplaintAction?.target &&
+          !responseParts.some((part) => part.includes("Recording chief complaint"))
+        ) {
+          responseParts.push(`Recording chief complaint as ${chiefComplaintAction.target}.`);
+        }
         const selectedPathway = dedupedActions.find((action) => action.intent === "select_pathway")?.pathway;
-        if (selectedPathway) {
+        if (selectedPathway && !responseParts.some((part) => part.includes(`Selecting ${selectedPathway} pathway`))) {
           responseParts.push(`Selecting ${selectedPathway} pathway.`);
         }
       }
@@ -206,7 +499,7 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       return {
         ...result,
         intent: primary.intent,
-        target: primary.target ?? result.target,
+        target: primary.target ?? result.target ?? extractedChiefComplaint,
         tool: primary.tool ?? result.tool,
         pathway: primary.pathway ?? result.pathway,
         route: primary.route ?? result.route,
@@ -217,7 +510,7 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
         response_text: responseParts.filter(Boolean).join(" ").trim(),
       };
     },
-    [],
+    [routeBindings],
   );
   const voice = useVoiceSession({
     onAudioCaptured: async (audioBlob) => {
@@ -247,9 +540,13 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
         setInput(result.transcript || "");
         setLastCommand(enrichedResult);
         setStatus(enrichedResult.response_text);
+        pushMessage({ role: "user", text: result.transcript || "Voice command captured." });
+        pushMessage({ role: "assistant", text: enrichedResult.response_text });
         await executeCommand(enrichedResult);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Voice command failed.");
+        const message = error instanceof Error ? error.message : "Voice command failed.";
+        setStatus(message);
+        pushMessage({ role: "assistant", text: message });
       } finally {
         setBusy(false);
       }
@@ -269,12 +566,15 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       setSummary(data.summary);
       setMissingItems(data.missing_items);
       setStatus("Encounter summary updated.");
+      pushMessage({ role: "assistant", text: data.summary });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Could not generate summary.");
+      const message = error instanceof Error ? error.message : "Could not generate summary.";
+      setStatus(message);
+      pushMessage({ role: "assistant", text: message });
     } finally {
       setBusy(false);
     }
-  }, [encounterBindings]);
+  }, [encounterBindings, pushMessage]);
 
   const requestRecommendations = useCallback(async () => {
     if (!encounterBindings) {
@@ -288,12 +588,20 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       const data = await generateCopilotRecommendations(encounterBindings.getContext());
       setRecommendations(data.recommendations);
       setStatus("Recommendations ready for review.");
+      pushMessage({
+        role: "assistant",
+        text: data.recommendations.length
+          ? `Recommendations ready: ${data.recommendations.map((item) => item.title).join(", ")}.`
+          : "No recommendations were generated.",
+      });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Could not generate recommendations.");
+      const message = error instanceof Error ? error.message : "Could not generate recommendations.";
+      setStatus(message);
+      pushMessage({ role: "assistant", text: message });
     } finally {
       setBusy(false);
     }
-  }, [encounterBindings]);
+  }, [encounterBindings, pushMessage]);
 
   const executeAction = useCallback(async (result: CopilotCommandResult | NonNullable<CopilotCommandResult["actions"]>[number]) => {
     if (result.intent === "navigate_route" && result.route && routeBindings) {
@@ -368,6 +676,18 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       return true;
     }
 
+    if (result.intent === "apply_chief_complaint" && result.target) {
+      if (!encounterBindings?.applyChiefComplaint) {
+        setStatus("Open a patient workspace before applying the chief complaint.");
+        return false;
+      }
+      encounterBindings.applyChiefComplaint(result.target);
+      if (result.response_text) {
+        setStatus(result.response_text);
+      }
+      return true;
+    }
+
     if (result.intent === "select_pathway" && result.pathway) {
       if (!encounterBindings?.selectPathway) {
         setStatus("Open a patient workspace before selecting a care pathway.");
@@ -405,13 +725,20 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
   const executeCommand = useCallback(async (result: CopilotCommandResult) => {
     const actions = result.actions?.length ? result.actions : [result];
     const [firstAction, ...restActions] = actions;
+
+    if (firstAction.intent === "open_patient" && firstAction.patient_id && restActions.length) {
+      persistPendingEncounterPatch(firstAction.patient_id, actions);
+    }
+
     const didExecute = await executeAction(firstAction);
 
     if (!didExecute) {
       setPendingActions([]);
+      setPendingEncounterPatientId(null);
       return;
     }
 
+    setPendingEncounterPatientId(firstAction.intent === "open_patient" ? firstAction.patient_id ?? null : null);
     setPendingActions(restActions);
   }, [executeAction]);
 
@@ -421,8 +748,37 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
 
     setBusy(true);
     setStatus("Understanding command...");
+    pushMessage({ role: "user", text });
     try {
+      if (routeBindings.currentRoute.startsWith("/analytics") && analyticsBindings) {
+        const chartResult = await analyticsBindings.buildChart(text);
+        if (chartResult) {
+          setStatus(chartResult.responseText);
+          pushMessage({
+            role: "assistant",
+            text: chartResult.responseText,
+            chart: chartResult.chart,
+          });
+          setInput("");
+          setBusy(false);
+          return;
+        }
+      }
+
       const encounterContext = encounterBindings?.getContext();
+      const deterministicCommand = !routeBindings.currentRoute.startsWith("/analytics")
+        ? buildDeterministicCommand(text, encounterContext?.availablePatients ?? routeBindings.availablePatients)
+        : null;
+
+      if (deterministicCommand) {
+        setLastCommand(deterministicCommand);
+        setStatus(deterministicCommand.response_text);
+        pushMessage({ role: "assistant", text: deterministicCommand.response_text });
+        setInput("");
+        await executeCommand(deterministicCommand);
+        return;
+      }
+
       const result = await parseCopilotCommand({
         transcript: text,
         current_route: routeBindings.currentRoute,
@@ -436,14 +792,17 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       const enrichedResult = enrichCommandResult(result, text, encounterContext);
       setLastCommand(enrichedResult);
       setStatus(enrichedResult.response_text);
+      pushMessage({ role: "assistant", text: enrichedResult.response_text });
       setInput("");
       await executeCommand(enrichedResult);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Could not process command.");
+      const message = error instanceof Error ? error.message : "Could not process command.";
+      setStatus(message);
+      pushMessage({ role: "assistant", text: message });
     } finally {
       setBusy(false);
     }
-  }, [encounterBindings, enrichCommandResult, executeCommand, input, routeBindings]);
+  }, [analyticsBindings, encounterBindings, enrichCommandResult, executeCommand, input, pushMessage, routeBindings]);
 
   const requestMicrophonePermission = useCallback(async () => {
     setStatus("Requesting microphone permission...");
@@ -469,6 +828,11 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
     voice.stopListening();
     setStatus("Voice capture stopped.");
   }, [voice]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(COPILOT_CHAT_HISTORY_KEY, JSON.stringify(messages.slice(-50)));
+  }, [messages]);
 
   useEffect(() => {
     if (voice.listening) {
@@ -502,6 +866,7 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       nextAction.intent === "previous_step" ||
       nextAction.intent === "open_tool" ||
       nextAction.intent === "apply_vitals" ||
+      nextAction.intent === "apply_chief_complaint" ||
       nextAction.intent === "select_pathway";
 
     if (needsEncounter && !encounterBindings) {
@@ -512,17 +877,37 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (pendingEncounterPatientId) {
+      const activePatientId = encounterBindings?.getContext().patientId;
+      const isEncounterAction =
+        nextAction.intent === "navigate_section" ||
+        nextAction.intent === "next_step" ||
+        nextAction.intent === "previous_step" ||
+        nextAction.intent === "open_tool" ||
+        nextAction.intent === "apply_vitals" ||
+        nextAction.intent === "apply_chief_complaint" ||
+        nextAction.intent === "select_pathway";
+
+      if (isEncounterAction && activePatientId !== pendingEncounterPatientId) {
+        return;
+      }
+    }
+
     const timer = window.setTimeout(async () => {
       const didExecute = await executeAction(nextAction);
       if (didExecute) {
+        if (pendingEncounterPatientId && encounterBindings?.getContext().patientId === pendingEncounterPatientId) {
+          setPendingEncounterPatientId(null);
+        }
         setPendingActions((current) => current.slice(1));
       } else {
         setPendingActions([]);
+        setPendingEncounterPatientId(null);
       }
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [encounterBindings, executeAction, pendingActions, routeBindings]);
+  }, [encounterBindings, executeAction, pendingActions, pendingEncounterPatientId, routeBindings]);
 
   const value = useMemo<CopilotContextValue>(
     () => ({
@@ -535,13 +920,18 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       summary,
       missingItems,
       recommendations,
+      messages,
+      clearHistory,
+      startNewChat,
       busy,
       listening: voice.listening,
       voiceSupported: voice.supported,
       voicePermissionState: voice.permissionState,
       voiceLastError: voice.lastError,
+      analyticsBindings,
       routeBindings,
       encounterBindings,
+      setAnalyticsBindings,
       setRouteBindings,
       setEncounterBindings,
       runCommand,
@@ -559,13 +949,18 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       summary,
       missingItems,
       recommendations,
+      messages,
+      clearHistory,
+      startNewChat,
       busy,
       voice.listening,
       voice.supported,
       voice.permissionState,
       voice.lastError,
+      analyticsBindings,
       routeBindings,
       encounterBindings,
+      setAnalyticsBindings,
       runCommand,
       requestSummary,
       requestRecommendations,

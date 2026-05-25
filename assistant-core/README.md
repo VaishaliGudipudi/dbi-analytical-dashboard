@@ -143,7 +143,15 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 6. Install Ollama
+This installs the Render-friendly text backend only.
+
+If you also want local voice features, install the optional voice stack:
+
+```powershell
+pip install -r requirements.voice.txt
+```
+
+### 6. Optional: install Ollama
 
 Download and install Ollama from:
 
@@ -155,7 +163,7 @@ Then start the local Ollama service:
 ollama serve
 ```
 
-### 7. Pull the default medical model
+### 7. Optional: pull the default medical model
 
 The copilot backend now defaults to `meditron:7b`, which is an official Ollama medical model.
 
@@ -231,6 +239,47 @@ If you want to override that later in the React app, use:
 VITE_COPILOT_API_BASE=http://127.0.0.1:8000
 ```
 
+## Deploy on Render
+
+The backend now supports Render-friendly text mode:
+
+1. It binds to `0.0.0.0:$PORT`
+2. Voice features are optional
+3. The LLM provider is configured using environment variables
+
+If you use the root `render.yaml`, Render can create the service automatically. If you configure it manually, use:
+
+```text
+Root Directory: assistant-core
+Build Command: pip install -r requirements.txt
+Start Command: python web/server.py
+Health Check Path: /health
+```
+
+Recommended environment variables:
+
+```text
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+Supported values for `LLM_PROVIDER`:
+
+```text
+openai
+openai-compatible
+ollama
+disabled
+```
+
+Notes:
+
+1. `ollama` is still useful for local development.
+2. `openai-compatible` also works with providers that expose a compatible `/v1/chat/completions` API.
+3. Voice endpoints may be unavailable on Render unless you separately install `requirements.voice.txt`.
+
 ## What should happen
 
 1. The assistant says:
@@ -296,9 +345,9 @@ It calls the local Python server and displays:
 2. transcript
 3. assistant reply
 
-### `ai/ollama_client.py`
+### `ai/llm_client.py`
 
-Connects the backend to your local Ollama server.
+Selects between local Ollama and a hosted OpenAI-compatible LLM API.
 
 ### `ai/copilot_service.py`
 
@@ -400,8 +449,16 @@ Fix:
    ```
 3. Run:
    ```powershell
-   pip install -r requirements.txt
+   pip install -r requirements.voice.txt
    ```
+
+### Problem: copilot requests fail with hosted LLM errors
+
+Fix:
+
+1. Confirm `LLM_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_BASE_URL` are set correctly.
+2. Confirm your hosted provider supports `/v1/chat/completions`.
+3. Check Render logs for the returned HTTP error body.
 
 ### Problem: copilot requests fail with Ollama errors
 

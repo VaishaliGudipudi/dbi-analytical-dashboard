@@ -30,6 +30,31 @@ export interface Diagnosis {
   ward: string;
 }
 
+export interface WorkspaceOrderItem {
+  category: "investigation" | "medication";
+  name: string;
+  requirement: string;
+  notes: string;
+}
+
+export interface OutcomeDraft {
+  shiftedTo: string;
+  patientStatus: string;
+  provisionalDiagnosis: string;
+  course: string;
+  carePlan: string;
+  summary: string;
+}
+
+export interface PatientWorkspaceDraft {
+  formValues: Record<string, string>;
+  chiefComplaint: string;
+  vitals: Record<string, string>;
+  orderedItems: WorkspaceOrderItem[];
+  pathwayOverride: string | null;
+  outcome: OutcomeDraft;
+}
+
 export interface EdSnapshot {
   patients: Patient[];
   wards: Ward[];

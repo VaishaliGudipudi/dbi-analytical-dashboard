@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -46,6 +46,8 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useCopilot } from "@/copilot/hooks/useCopilot";
+import { createAnalyticsCopilotBindings } from "@/copilot/utils/analyticsCopilot";
 import { getEdSnapshot } from "@/lib/edApi";
 import { patients as roster, wards } from "@/lib/mockData";
 
@@ -203,17 +205,24 @@ const protocolSegmentColors = [COLORS.blue, COLORS.green, COLORS.coral, COLORS.a
 
 function Analytics() {
   const { patients } = Route.useLoaderData();
+  const { setAnalyticsBindings } = useCopilot();
   const [tab, setTab] = useState<GroupId>("operational");
   const [range, setRange] = useState<RangeId>("30d");
   const [custom, setCustom] = useState({ from: "", to: "" });
   const [activeFilter, setActiveFilter] = useState<DashboardFilter | null>(null);
   const [drillMetric, setDrillMetric] = useState<Metric | null>(null);
   const days = useMemo(() => dateRangeDays(range, custom), [range, custom]);
+  const analyticsBindings = useMemo(() => createAnalyticsCopilotBindings(patients), [patients]);
   const filteredPatients = useMemo(() => filterPatients(patients, activeFilter), [patients, activeFilter]);
   const filterRatio = activeFilter ? filterImpactMultiplier(filteredPatients.length, patients.length) : 1;
   const applyFilter = (filter: DashboardFilter) => {
     setActiveFilter(current => isSameFilter(current, filter) ? null : filter);
   };
+
+  useEffect(() => {
+    setAnalyticsBindings(analyticsBindings);
+    return () => setAnalyticsBindings(null);
+  }, [analyticsBindings, setAnalyticsBindings]);
 
   return (
     <div className="mx-auto max-w-[1680px] space-y-5 p-5 font-sans lg:p-6">
