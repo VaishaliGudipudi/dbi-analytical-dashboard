@@ -51,6 +51,8 @@ type PersistedEdDatabase = {
   workspaceDrafts: Record<string, PatientWorkspaceDraft>;
 };
 
+let inMemoryDatabase: PersistedEdDatabase | null = null;
+
 const DB_DIRECTORY = path.join(process.cwd(), "data");
 const DB_FILE = path.join(DB_DIRECTORY, "ed-patient-db.json");
 
@@ -103,6 +105,29 @@ function createSeedDatabase(): PersistedEdDatabase {
   };
 }
 
+function cloneDatabase(database: PersistedEdDatabase): PersistedEdDatabase {
+  return {
+    patients: database.patients.map((patient) => ({ ...patient })),
+    diagnoses: database.diagnoses.map((diagnosis) => ({ ...diagnosis })),
+    workspaceDrafts: Object.fromEntries(
+      Object.entries(database.workspaceDrafts).map(([patientId, draft]) => [patientId, cloneWorkspaceDraft(draft)]),
+    ),
+  };
+}
+
+function shouldFallbackToMemory(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const nodeError = error as Error & { code?: string };
+  return ["EPERM", "EROFS", "EACCES", "ENOSYS"].includes(nodeError.code ?? "");
+}
+
+function getInMemoryDatabase() {
+  if (!inMemoryDatabase) {
+    inMemoryDatabase = createSeedDatabase();
+  }
+  return inMemoryDatabase;
+}
+
 async function ensureDatabaseFile() {
   await mkdir(DB_DIRECTORY, { recursive: true });
   try {
@@ -113,21 +138,35 @@ async function ensureDatabaseFile() {
 }
 
 async function readDatabase(): Promise<PersistedEdDatabase> {
-  await ensureDatabaseFile();
-  const raw = await readFile(DB_FILE, "utf8");
-  const parsed = JSON.parse(raw) as Partial<PersistedEdDatabase>;
-  return {
-    patients: (parsed.patients ?? patientsTable).map((patient) => ({ ...patient })),
-    diagnoses: (parsed.diagnoses ?? diagnosisTable).map((diagnosis) => ({ ...diagnosis })),
-    workspaceDrafts: Object.fromEntries(
-      Object.entries(parsed.workspaceDrafts ?? {}).map(([patientId, draft]) => [patientId, cloneWorkspaceDraft(draft)]),
-    ),
-  };
+  try {
+    await ensureDatabaseFile();
+    const raw = await readFile(DB_FILE, "utf8");
+    const parsed = JSON.parse(raw) as Partial<PersistedEdDatabase>;
+    return {
+      patients: (parsed.patients ?? patientsTable).map((patient) => ({ ...patient })),
+      diagnoses: (parsed.diagnoses ?? diagnosisTable).map((diagnosis) => ({ ...diagnosis })),
+      workspaceDrafts: Object.fromEntries(
+        Object.entries(parsed.workspaceDrafts ?? {}).map(([patientId, draft]) => [patientId, cloneWorkspaceDraft(draft)]),
+      ),
+    };
+  } catch (error) {
+    if (!shouldFallbackToMemory(error)) {
+      throw error;
+    }
+    return cloneDatabase(getInMemoryDatabase());
+  }
 }
 
 async function writeDatabase(database: PersistedEdDatabase) {
-  await ensureDatabaseFile();
-  await writeFile(DB_FILE, JSON.stringify(database, null, 2), "utf8");
+  try {
+    await ensureDatabaseFile();
+    await writeFile(DB_FILE, JSON.stringify(database, null, 2), "utf8");
+  } catch (error) {
+    if (!shouldFallbackToMemory(error)) {
+      throw error;
+    }
+    inMemoryDatabase = cloneDatabase(database);
+  }
 }
 
 function wardForPatient(patient: Patient) {

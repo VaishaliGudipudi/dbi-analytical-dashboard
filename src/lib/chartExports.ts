@@ -18,18 +18,26 @@ function sanitizeFilename(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "chart";
 }
 
-function inlineSvgStyles(svg: SVGSVGElement) {
-  const computedSvg = window.getComputedStyle(svg);
+function inlineSvgStyles(svg: SVGSVGElement, sourceSvg: SVGSVGElement) {
+  const computedSvg = window.getComputedStyle(sourceSvg);
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   svg.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
   svg.style.background = computedSvg.backgroundColor || "#ffffff";
 
-  svg.querySelectorAll<SVGElement>("*").forEach((node) => {
-    const computed = window.getComputedStyle(node);
+  const sourceNodes = Array.from(sourceSvg.querySelectorAll<SVGElement>("*"));
+  const clonedNodes = Array.from(svg.querySelectorAll<SVGElement>("*"));
+
+  clonedNodes.forEach((node, index) => {
+    const sourceNode = sourceNodes[index];
+    if (!sourceNode) return;
+    const computed = window.getComputedStyle(sourceNode);
     const style = [
       ["fill", computed.fill],
       ["stroke", computed.stroke],
       ["stroke-width", computed.strokeWidth],
+      ["stroke-linecap", computed.strokeLinecap],
+      ["stroke-linejoin", computed.strokeLinejoin],
+      ["stroke-dasharray", computed.strokeDasharray],
       ["font-size", computed.fontSize],
       ["font-family", computed.fontFamily],
       ["font-weight", computed.fontWeight],
@@ -43,6 +51,16 @@ function inlineSvgStyles(svg: SVGSVGElement) {
     if (style) {
       node.setAttribute("style", style);
     }
+
+    if (computed.fill && computed.fill !== "none") {
+      node.setAttribute("fill", computed.fill);
+    }
+    if (computed.stroke && computed.stroke !== "none") {
+      node.setAttribute("stroke", computed.stroke);
+    }
+    if (computed.strokeWidth && computed.strokeWidth !== "0px") {
+      node.setAttribute("stroke-width", computed.strokeWidth);
+    }
   });
 }
 
@@ -53,13 +71,19 @@ function serializeChartSvg(container: HTMLElement) {
   }
 
   const clonedSvg = sourceSvg.cloneNode(true) as SVGSVGElement;
-  const rect = container.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width));
-  const height = Math.max(1, Math.round(rect.height));
+  const svgRect = sourceSvg.getBoundingClientRect();
+  const width = Math.max(1, Math.round(svgRect.width));
+  const height = Math.max(1, Math.round(svgRect.height));
+  const sourceViewBox = sourceSvg.getAttribute("viewBox");
 
   clonedSvg.setAttribute("width", String(width));
   clonedSvg.setAttribute("height", String(height));
-  clonedSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  if (sourceViewBox) {
+    clonedSvg.setAttribute("viewBox", sourceViewBox);
+  } else {
+    clonedSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  }
+  clonedSvg.setAttribute("preserveAspectRatio", sourceSvg.getAttribute("preserveAspectRatio") ?? "xMidYMid meet");
 
   const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   background.setAttribute("x", "0");
@@ -69,8 +93,12 @@ function serializeChartSvg(container: HTMLElement) {
   background.setAttribute("fill", "#fffaf3");
   clonedSvg.insertBefore(background, clonedSvg.firstChild);
 
-  inlineSvgStyles(clonedSvg);
-  return new XMLSerializer().serializeToString(clonedSvg);
+  inlineSvgStyles(clonedSvg, sourceSvg);
+  return {
+    serialized: new XMLSerializer().serializeToString(clonedSvg),
+    width,
+    height,
+  };
 }
 
 export function downloadChartCsv(chart: CopilotChartSpec) {
@@ -81,15 +109,12 @@ export function downloadChartCsv(chart: CopilotChartSpec) {
 }
 
 export function downloadChartSvg(chart: CopilotChartSpec, container: HTMLElement) {
-  const serialized = serializeChartSvg(container);
+  const { serialized } = serializeChartSvg(container);
   triggerDownload(`${sanitizeFilename(chart.title)}.svg`, new Blob([serialized], { type: "image/svg+xml;charset=utf-8" }));
 }
 
 export async function downloadChartPng(chart: CopilotChartSpec, container: HTMLElement) {
-  const serialized = serializeChartSvg(container);
-  const rect = container.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width));
-  const height = Math.max(1, Math.round(rect.height));
+  const { serialized, width, height } = serializeChartSvg(container);
   const image = new Image();
   const svgUrl = URL.createObjectURL(new Blob([serialized], { type: "image/svg+xml;charset=utf-8" }));
 
