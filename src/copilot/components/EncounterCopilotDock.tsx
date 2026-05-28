@@ -9,6 +9,7 @@ import { downloadChartCsv, downloadChartPng, downloadChartSvg, saveChartSnapshot
 export function EncounterCopilotDock({ floating = true }: { floating?: boolean }) {
   const copilot = useCopilot();
   const path = useRouterState({ select: (state) => state.location.pathname });
+  const [showHistory, setShowHistory] = useState(false);
   const visibleMessages = copilot.messages.filter((message) => message.id !== "copilot-welcome");
   const statusBanner =
     copilot.status && copilot.status !== "Copilot ready." && !path.startsWith("/analytics") ? copilot.status : "";
@@ -63,6 +64,20 @@ export function EncounterCopilotDock({ floating = true }: { floating?: boolean }
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
+                  setShowHistory((current) => !current);
+                }}
+                className="rounded-xl bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                aria-label="Toggle chat history"
+                title="Toggle chat history"
+              >
+                <Save className="h-4 w-4" />
+              </button>
+            ) : null}
+            {copilot.open ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
                   copilot.clearHistory();
                 }}
                 className="rounded-xl bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
@@ -89,6 +104,44 @@ export function EncounterCopilotDock({ floating = true }: { floating?: boolean }
                 {statusBanner ? (
                   <div className="rounded-2xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-navy">
                     {statusBanner}
+                  </div>
+                ) : null}
+
+                {showHistory ? (
+                  <div className="rounded-2xl border border-border bg-white p-4 text-sm text-navy shadow-soft">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="text-sm font-bold">Chat History</div>
+                      <button
+                        type="button"
+                        onClick={() => setShowHistory(false)}
+                        className="rounded-xl border border-border bg-background px-3 py-1 text-[11px] font-semibold text-navy hover:bg-secondary/40"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {copilot.chatThreads.map((thread) => (
+                        <button
+                          key={thread.id}
+                          type="button"
+                          onClick={() => {
+                            copilot.openChatThread(thread.id);
+                            setShowHistory(false);
+                          }}
+                          className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                            thread.id === copilot.activeChatThreadId
+                              ? "border-coral bg-coral/10 text-navy"
+                              : "border-border bg-background text-muted-foreground hover:border-slate-300 hover:bg-secondary/50 hover:text-navy"
+                          }`}
+                        >
+                          <div className="font-semibold text-navy">{thread.title}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">{thread.messages.length} messages</div>
+                        </button>
+                      ))}
+                      {copilot.chatThreads.length === 0 ? (
+                        <div className="rounded-2xl border border-border bg-background px-3 py-2 text-xs text-muted-foreground">No chat history available yet.</div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
 

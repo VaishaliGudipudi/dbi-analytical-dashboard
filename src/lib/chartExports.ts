@@ -125,17 +125,18 @@ export async function downloadChartPng(chart: CopilotChartSpec, container: HTMLE
       image.src = svgUrl;
     });
 
+    const scale = Math.max(window.devicePixelRatio || 2, 2);
     const canvas = document.createElement("canvas");
-    canvas.width = width * 2;
-    canvas.height = height * 2;
+    canvas.width = width * scale;
+    canvas.height = height * scale;
     const context = canvas.getContext("2d");
     if (!context) {
       throw new Error("PNG export is not supported in this browser.");
     }
 
+    context.setTransform(scale, 0, 0, scale, 0, 0);
     context.fillStyle = "#fffaf3";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.scale(2, 2);
+    context.fillRect(0, 0, width, height);
     context.drawImage(image, 0, 0, width, height);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));

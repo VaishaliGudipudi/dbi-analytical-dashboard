@@ -70,6 +70,13 @@ export type CopilotChatMessage = {
   timestamp: string;
 };
 
+export type CopilotChatThread = {
+  id: string;
+  title: string;
+  messages: CopilotChatMessage[];
+  updatedAt: string;
+};
+
 export type EncounterOrderItem = {
   category: "investigation" | "medication";
   name: string;

@@ -10,6 +10,7 @@ import type {
   AnalyticsBindings,
   CopilotAction,
   CopilotChatMessage,
+  CopilotChatThread,
   CopilotCommandResult,
   CopilotRecommendation,
   EncounterBindings,
@@ -33,6 +34,9 @@ type CopilotContextValue = {
   voicePermissionState: "unknown" | "granted" | "denied" | "prompt";
   voiceLastError: string;
   messages: CopilotChatMessage[];
+  chatThreads: CopilotChatThread[];
+  activeChatThreadId: string;
+  openChatThread: (threadId: string) => void;
   clearHistory: () => void;
   startNewChat: () => void;
   analyticsBindings: AnalyticsBindings | null;
@@ -52,6 +56,7 @@ type CopilotContextValue = {
 const CopilotContext = createContext<CopilotContextValue | null>(null);
 const COPILOT_PENDING_PATCH_KEY = "bioinsights-copilot-pending";
 const COPILOT_CHAT_HISTORY_KEY = "bioinsights-copilot-history";
+const COPILOT_ACTIVE_CHAT_THREAD_KEY = "bioinsights-copilot-active-thread";
 const WELCOME_MESSAGE: CopilotChatMessage = {
   id: "copilot-welcome",
   role: "assistant",
@@ -255,6 +260,66 @@ function loadPersistedMessages() {
   }
 }
 
+function deriveThreadTitle(messages: CopilotChatMessage[]) {
+  const firstUserMessage = messages.find((message) => message.role === "user" && message.text.trim());
+  if (!firstUserMessage) {
+    return "New chat";
+  }
+
+  return firstUserMessage.text.trim().replace(/\s+/g, " ").slice(0, 48);
+}
+
+function buildChatThread(title?: string, messages?: CopilotChatMessage[]): CopilotChatThread {
+  const threadMessages = messages && messages.length ? messages : [WELCOME_MESSAGE];
+  return {
+    id: `copilot-thread-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    title: (title ?? deriveThreadTitle(threadMessages)) || "New chat",
+    messages: threadMessages,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function loadPersistedThreads() {
+  if (typeof window === "undefined") {
+    const thread = buildChatThread();
+    return { threads: [thread], activeThreadId: thread.id };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(COPILOT_CHAT_HISTORY_KEY);
+    const activeId = window.localStorage.getItem(COPILOT_ACTIVE_CHAT_THREAD_KEY);
+    if (!raw) {
+      const thread = buildChatThread();
+      return { threads: [thread], activeThreadId: thread.id };
+    }
+
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length && typeof parsed[0] === "object") {
+      if (parsed.every((item) => item && typeof item.id === "string" && Array.isArray(item.messages))) {
+        const threads = parsed as CopilotChatThread[];
+        const activeThreadId = activeId && threads.some((thread) => thread.id === activeId) ? activeId : threads[0].id;
+        return { threads, activeThreadId };
+      }
+
+      const messages = (parsed as CopilotChatMessage[]).filter(
+        (message) =>
+          message &&
+          typeof message.id === "string" &&
+          typeof message.role === "string" &&
+          typeof message.text === "string" &&
+          typeof message.timestamp === "string",
+      );
+      const thread = buildChatThread(deriveThreadTitle(messages), messages.length ? messages : undefined);
+      return { threads: [thread], activeThreadId: thread.id };
+    }
+  } catch {
+    // fallback to fresh chat
+  }
+
+  const thread = buildChatThread();
+  return { threads: [thread], activeThreadId: thread.id };
+}
+
 function buildDeterministicCommand(
   transcript: string,
   availablePatients: RouteBindings["availablePatients"] | EncounterContext["availablePatients"] | undefined,
@@ -337,7 +402,14 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
   const [summary, setSummary] = useState("");
   const [missingItems, setMissingItems] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<CopilotRecommendation[]>([]);
-  const [messages, setMessages] = useState<CopilotChatMessage[]>(() => loadPersistedMessages());
+  const initialThreadState = useMemo(() => loadPersistedThreads(), []);
+  const [chatThreads, setChatThreads] = useState<CopilotChatThread[]>(initialThreadState.threads);
+  const [activeChatThreadId, setActiveChatThreadId] = useState(initialThreadState.activeThreadId);
+  const activeThread = useMemo(
+    () => chatThreads.find((thread) => thread.id === activeChatThreadId) ?? chatThreads[0] ?? buildChatThread(),
+    [activeChatThreadId, chatThreads],
+  );
+  const messages = activeThread.messages;
   const [busy, setBusy] = useState(false);
   const [pendingActions, setPendingActions] = useState<NonNullable<CopilotCommandResult["actions"]>>([]);
   const [pendingEncounterPatientId, setPendingEncounterPatientId] = useState<string | null>(null);
@@ -345,23 +417,53 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
   const [encounterBindings, setEncounterBindings] = useState<EncounterBindings | null>(null);
   const [analyticsBindings, setAnalyticsBindings] = useState<AnalyticsBindings | null>(null);
 
-  const pushMessage = useCallback((message: Omit<CopilotChatMessage, "id" | "timestamp">) => {
-    setMessages((current) => [
-      ...current,
-      {
-        id: `${message.role}-${Date.now()}-${current.length}`,
-        timestamp: new Date().toISOString(),
-        ...message,
-      },
-    ]);
-  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(COPILOT_CHAT_HISTORY_KEY, JSON.stringify(chatThreads));
+    window.localStorage.setItem(COPILOT_ACTIVE_CHAT_THREAD_KEY, activeChatThreadId);
+  }, [chatThreads, activeChatThreadId]);
+
+  const pushMessage = useCallback(
+    (message: Omit<CopilotChatMessage, "id" | "timestamp">) => {
+      setChatThreads((current) =>
+        current.map((thread) => {
+          if (thread.id !== activeChatThreadId) {
+            return thread;
+          }
+
+          const nextMessages = [
+            ...thread.messages,
+            {
+              id: `${message.role}-${Date.now()}-${thread.messages.length}`,
+              timestamp: new Date().toISOString(),
+              ...message,
+            },
+          ];
+
+          return {
+            ...thread,
+            title: deriveThreadTitle(nextMessages),
+            messages: nextMessages,
+            updatedAt: new Date().toISOString(),
+          };
+        }),
+      );
+    },
+    [activeChatThreadId],
+  );
   const clearHistory = useCallback(() => {
-    setMessages([WELCOME_MESSAGE]);
+    const thread = buildChatThread();
+    setChatThreads([thread]);
+    setActiveChatThreadId(thread.id);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(COPILOT_CHAT_HISTORY_KEY);
+      window.localStorage.removeItem(COPILOT_ACTIVE_CHAT_THREAD_KEY);
     }
   }, []);
   const startNewChat = useCallback(() => {
+    const thread = buildChatThread();
+    setChatThreads((current) => [thread, ...current]);
+    setActiveChatThreadId(thread.id);
     setInput("");
     setStatus("Copilot ready.");
     setLastCommand(null);
@@ -370,13 +472,9 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
     setRecommendations([]);
     setPendingActions([]);
     setPendingEncounterPatientId(null);
-    setMessages([
-      {
-        ...WELCOME_MESSAGE,
-        id: `copilot-welcome-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
+  }, []);
+  const openChatThread = useCallback((threadId: string) => {
+    setActiveChatThreadId(threadId);
   }, []);
   const enrichCommandResult = useCallback(
     (result: CopilotCommandResult, transcriptText: string, encounterContext?: EncounterContext): CopilotCommandResult => {
@@ -831,8 +929,9 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(COPILOT_CHAT_HISTORY_KEY, JSON.stringify(messages.slice(-50)));
-  }, [messages]);
+    window.localStorage.setItem(COPILOT_CHAT_HISTORY_KEY, JSON.stringify(chatThreads));
+    window.localStorage.setItem(COPILOT_ACTIVE_CHAT_THREAD_KEY, activeChatThreadId);
+  }, [chatThreads, activeChatThreadId]);
 
   useEffect(() => {
     if (voice.listening) {
@@ -931,6 +1030,9 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       analyticsBindings,
       routeBindings,
       encounterBindings,
+      chatThreads,
+      activeChatThreadId,
+      openChatThread,
       setAnalyticsBindings,
       setRouteBindings,
       setEncounterBindings,
@@ -960,6 +1062,9 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       analyticsBindings,
       routeBindings,
       encounterBindings,
+      chatThreads,
+      activeChatThreadId,
+      openChatThread,
       setAnalyticsBindings,
       runCommand,
       requestSummary,

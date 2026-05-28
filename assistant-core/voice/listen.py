@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import sounddevice as sd
 import whisper
 
 
@@ -18,8 +17,8 @@ class ListenerConfig:
     sample_rate: int = 16000
     channels: int = 1
     recording_seconds: int = 5
-    model_name: str = "base"
-    language: str = "en"
+    model_name: str = os.getenv("WHISPER_MODEL", "base")
+    language: str | None = os.getenv("WHISPER_LANGUAGE", "en") or None
     device: int | None = None
 
 
@@ -44,11 +43,18 @@ class SpeechListener:
         with self._create_temp_wav(audio_data) as audio_path:
             return self._transcribe_file(audio_path, status_callback=status_callback)
 
-    def transcribe_existing_audio(self, audio_path: str | Path, status_callback=None) -> str:
-        return self._transcribe_file(str(audio_path), status_callback=status_callback)
+    def transcribe_existing_audio(
+        self,
+        audio_path: str | Path,
+        status_callback=None,
+        initial_prompt: str | None = None,
+    ) -> str:
+        return self._transcribe_file(str(audio_path), status_callback=status_callback, initial_prompt=initial_prompt)
 
     def _record_audio(self) -> np.ndarray:
         try:
+            import sounddevice as sd
+
             print("Listening now...")
             print(f"Recording for {self.config.recording_seconds} seconds.")
             frames = int(self.config.sample_rate * self.config.recording_seconds)
@@ -61,6 +67,10 @@ class SpeechListener:
             )
             sd.wait()
             return audio_data
+        except ModuleNotFoundError as error:
+            raise TranscriptionError(
+                "Microphone capture is unavailable because the optional 'sounddevice' package is not installed."
+            ) from error
         except Exception as error:
             raise TranscriptionError(
                 "Microphone recording failed. Check your microphone permissions and device settings."
@@ -89,16 +99,25 @@ class SpeechListener:
             self._model = whisper.load_model(self.config.model_name)
         return self._model
 
-    def _transcribe_file(self, audio_path: str, status_callback=None) -> str:
+    def _transcribe_file(
+        self,
+        audio_path: str,
+        status_callback=None,
+        initial_prompt: str | None = None,
+    ) -> str:
         try:
             if status_callback:
                 status_callback("Transcribing audio with Whisper.")
             model = self._load_model(status_callback=status_callback)
-            result = model.transcribe(
-                audio_path,
-                language=self.config.language,
-                fp16=False,
-            )
+            transcribe_kwargs = {
+                "fp16": False,
+            }
+            if self.config.language:
+                transcribe_kwargs["language"] = self.config.language
+            if initial_prompt:
+                transcribe_kwargs["initial_prompt"] = initial_prompt
+
+            result = model.transcribe(audio_path, **transcribe_kwargs)
             return result["text"].strip()
         except Exception as error:
             raise TranscriptionError(

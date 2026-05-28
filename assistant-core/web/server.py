@@ -42,6 +42,36 @@ def get_assistant_service():
     return assistant_service
 
 
+def build_voice_transcription_prompt(context: dict) -> str:
+    hints: list[str] = [
+        "This is an emergency department copilot voice command.",
+        "Prefer short navigation and patient-opening commands.",
+    ]
+
+    patient_names = [
+        str(patient.get("name", "")).strip()
+        for patient in context.get("available_patients", [])
+        if isinstance(patient, dict) and str(patient.get("name", "")).strip()
+    ]
+    if patient_names:
+        hints.append(f"Possible patient names: {', '.join(patient_names[:20])}.")
+
+    sections = [str(section).strip() for section in context.get("available_sections", []) if str(section).strip()]
+    if sections:
+        hints.append(f"Possible sections: {', '.join(sections[:12])}.")
+
+    tools = [str(tool).strip() for tool in context.get("available_tools", []) if str(tool).strip()]
+    if tools:
+        hints.append(f"Possible tools: {', '.join(tools[:12])}.")
+
+    pathways = [str(pathway).strip() for pathway in context.get("available_pathways", []) if str(pathway).strip()]
+    if pathways:
+        hints.append(f"Possible pathways: {', '.join(pathways[:12])}.")
+
+    hints.append("If a spoken word sounds like a patient name, prefer the patient name.")
+    return " ".join(hints)
+
+
 class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.NO_CONTENT)
@@ -247,6 +277,7 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
 
             context_header = self.headers.get("X-Copilot-Context", "{}")
             context = json.loads(unquote(context_header))
+            transcription_prompt = build_voice_transcription_prompt(context)
 
             content_type = self.headers.get("Content-Type", "")
             suffix = ".webm"
@@ -258,7 +289,11 @@ class AssistantHTTPRequestHandler(BaseHTTPRequestHandler):
                 suffix = ".ogg"
 
             audio_bytes = self.rfile.read(content_length)
-            transcript_result = get_assistant_service().process_browser_audio(audio_bytes, suffix=suffix)
+            transcript_result = get_assistant_service().process_browser_audio_with_prompt(
+                audio_bytes,
+                suffix=suffix,
+                initial_prompt=transcription_prompt,
+            )
             transcript = transcript_result.get("transcript", "").strip()
             stop_phrase = str(context.get("stop_phrase", DEFAULT_STOP_PHRASE)).strip()
             transcript = self._strip_stop_phrase(transcript, stop_phrase)

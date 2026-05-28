@@ -3,7 +3,7 @@ services:
     name: bioinsights-copilot-backend
     runtime: python
     rootDir: assistant-core
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && pip install -r requirements.voice.txt
     startCommand: python web/server.py
     healthCheckPath: /health
     envVars:
