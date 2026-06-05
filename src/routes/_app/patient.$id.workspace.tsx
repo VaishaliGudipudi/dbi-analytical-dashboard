@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   Activity,
   AlertCircle,
@@ -287,6 +287,8 @@ function Workspace() {
   const [showScoring, setShowScoring] = useState(false);
   const [showVitals, setShowVitals] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
+  const [showPathwayPanel, setShowPathwayPanel] = useState(false);
+  const [activeHeaderPanel, setActiveHeaderPanel] = useState<"vitals" | "alerts" | "timers" | "ai" | "orders" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [rapidMode, setRapidMode] = useState(false);
   const [chiefComplaint, setChiefComplaint] = useState(() => workspaceDraft.chiefComplaint ?? "");
@@ -443,7 +445,7 @@ function Workspace() {
     if (idx > 0) setStep(STEPS[idx - 1].id);
   };
 
-  const addOrderedItem = (item: OrderedItem) => {
+  const addOrderedItem = useCallback((item: OrderedItem) => {
     setOrderedItems((current) => {
       const duplicate = current.some(
         (existing) =>
@@ -457,9 +459,9 @@ function Workspace() {
       return [...current, item];
     });
     setStep("orders");
-  };
+  }, []);
 
-  const runClinicalBundle = (bundleId: string) => {
+  const runClinicalBundle = useCallback((bundleId: string) => {
     const normalized = bundleId.toLowerCase();
     if (normalized === "stemi") {
       setChiefComplaint((current) => current || "Chest pain");
@@ -492,7 +494,7 @@ function Workspace() {
       });
       setNotice("STEMI bundle queued. Review orders, pathway, and scoring tools before confirming.");
     }
-  };
+  }, [addOrderedItem]);
 
   useEffect(() => {
     const availableSections = STEPS.map((item) => item.label);
@@ -575,8 +577,8 @@ function Workspace() {
   }, [chiefComplaint, pathway, requestRecommendations, vitals]);
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] px-5 pb-6 pt-4">
-      <div className="mb-5 rounded-[1.75rem] bg-navy px-5 py-4 text-navy-foreground shadow-soft-lg">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden px-5 pb-4 pt-4">
+      <div className="shrink-0 rounded-[1.75rem] bg-navy px-4 py-4 text-navy-foreground shadow-soft-lg xl:px-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <Link to="/dashboard" className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20">
@@ -596,17 +598,14 @@ function Workspace() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <ToolBtn onClick={() => setShowPathwayPanel((value) => !value)} icon={<ChevronDown className={`h-4 w-4 transition-transform ${showPathwayPanel ? "rotate-180" : ""}`} />}>
+              Care Pathway
+            </ToolBtn>
             <ToolBtn onClick={() => setShowScoring(true)} icon={<Calculator className="h-4 w-4" />}>
               Scoring Tools
             </ToolBtn>
-            <ToolBtn onClick={() => setShowVitals(true)} icon={<HeartPulse className="h-4 w-4" />}>
-              Add Vitals
-            </ToolBtn>
             <ToolBtn onClick={() => setNotice("Nurse Assessment placeholder: handoff checklist and nursing assessment will open here.")} icon={<ClipboardList className="h-4 w-4" />}>
               Nurse Assessment
-            </ToolBtn>
-            <ToolBtn onClick={() => setShowOrders(true)} icon={<Plus className="h-4 w-4" />}>
-              Add Orders
             </ToolBtn>
             <ToolBtn onClick={() => void startVoiceCapture(STEPS.find((item) => item.id === step)?.label ?? "active section")} icon={<Activity className="h-4 w-4" />}>
               Voice Fill
@@ -626,14 +625,32 @@ function Workspace() {
             />
           </div>
         </div>
+        {showPathwayPanel ? (
+          <div className="mt-3 rounded-[1.5rem] border border-white/10 bg-white/8 p-3 backdrop-blur-sm">
+            <div className="mb-2 flex items-center justify-between gap-3 px-1">
+              <div>
+                <div className="text-sm font-semibold text-white">Care Pathway Navigation</div>
+                <div className="text-[11px] text-white/65">Jump between pathway stages without keeping the side rail on screen.</div>
+              </div>
+            </div>
+            <CarePathwayRail step={step} setStep={setStep} floating onClose={() => setShowPathwayPanel(false)} />
+          </div>
+        ) : null}
+        <div className="mt-4">
+          <HeaderSummaryStrip
+            vitals={vitals}
+            recommendations={recommendations}
+            onAddVitals={() => setShowVitals(true)}
+            onQuickOrder={() => setShowOrders(true)}
+            activePanel={activeHeaderPanel}
+            onTogglePanel={(panel) => setActiveHeaderPanel((current) => (current === panel ? null : panel))}
+            inHeader
+          />
+        </div>
       </div>
 
-      <div className="mb-5 grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)_260px] 2xl:grid-cols-[240px_minmax(0,1fr)_280px]">
-        <aside>
-          <CarePathwayRail step={step} setStep={setStep} />
-        </aside>
-
-        <main ref={workspaceFormRef} className="space-y-4">
+      <div className="mt-4 flex-1 overflow-y-auto pr-1">
+        <main ref={workspaceFormRef} className="space-y-4 pb-5">
           <div className={`${shellCard} flex items-center gap-2 p-2`}>
             <button
               type="button"
@@ -715,15 +732,6 @@ function Workspace() {
             </button>
           </div>
         </main>
-
-        <aside>
-          <RightSummaryRail
-            vitals={vitals}
-            recommendations={recommendations}
-            onAddVitals={() => setShowVitals(true)}
-            onQuickOrder={() => setShowOrders(true)}
-          />
-        </aside>
       </div>
 
       {showOrders && <AddOrdersModal pathway={pathway} onClose={() => setShowOrders(false)} />}
@@ -755,7 +763,17 @@ function ToolBtn({ icon, children, onClick }: { icon: ReactNode; children: React
   );
 }
 
-function CarePathwayRail({ step, setStep }: { step: StepId; setStep: (step: StepId) => void }) {
+function CarePathwayRail({
+  step,
+  setStep,
+  floating,
+  onClose,
+}: {
+  step: StepId;
+  setStep: (step: StepId) => void;
+  floating?: boolean;
+  onClose?: () => void;
+}) {
   const railItems: { label: string; target: StepId; state: "done" | "active" | "idle" }[] = [
     { label: "Patient Registration", target: "arrival", state: "done" },
     { label: "Arrival and Triage", target: step === "arrival" || step === "triage" ? step : "triage", state: step === "arrival" || step === "triage" ? "active" : "done" },
@@ -766,12 +784,19 @@ function CarePathwayRail({ step, setStep }: { step: StepId; setStep: (step: Step
   ];
 
   return (
-    <div className="rounded-[28px] bg-white p-5 shadow-soft">
-      <div className="text-sm font-bold text-navy">Care Pathway</div>
-      <ol className="mt-4 space-y-3">
+    <div className={`rounded-[24px] bg-white p-4 shadow-soft ${floating ? "border border-border/80 shadow-soft-lg" : ""}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-bold text-navy">Care Pathway</div>
+        {floating && onClose ? (
+          <button type="button" onClick={onClose} className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-navy hover:bg-secondary/40">
+            Hide
+          </button>
+        ) : null}
+      </div>
+      <ol className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {railItems.map((item) => (
           <li key={item.label}>
-            <button type="button" onClick={() => setStep(item.target)} className="flex w-full items-center gap-3 text-left">
+            <button type="button" onClick={() => { setStep(item.target); onClose?.(); }} className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-left transition hover:bg-secondary/40">
               <span
                 className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 text-[11px] font-bold ${
                   item.state === "done"
@@ -788,9 +813,9 @@ function CarePathwayRail({ step, setStep }: { step: StepId; setStep: (step: Step
           </li>
         ))}
       </ol>
-      <div className="mt-7 border-t border-[#dfd1bd] pt-5">
+      <div className="mt-5 border-t border-[#dfd1bd] pt-4">
         <div className="text-xs font-bold uppercase text-muted-foreground">Nurse Pending Items</div>
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
           <PendingPill text="Medication History" />
           <PendingPill text="Full Clinical Assessment" />
         </div>
@@ -804,80 +829,225 @@ function RightSummaryRail({
   recommendations,
   onAddVitals,
   onQuickOrder,
+  inHeader,
 }: {
   vitals: Record<string, string>;
   recommendations: CopilotRecommendation[];
   onAddVitals: () => void;
   onQuickOrder: () => void;
+  inHeader?: boolean;
 }) {
   const hasVitals = Object.values(vitals).some(Boolean);
   return (
-    <div className="space-y-4">
-      <RailCard icon={<HeartPulse className="h-4 w-4" />} title="Vitals" tone="coral">
+    <div className={inHeader ? "grid gap-2 lg:grid-cols-2 xl:grid-cols-[0.72fr_0.72fr_0.82fr_0.95fr_0.9fr]" : "space-y-4"}>
+      <RailCard icon={<HeartPulse className="h-4 w-4" />} title="Vitals" tone="coral" compact={inHeader}>
         {hasVitals ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
             <MetricRow label="BP" value={`${vitals.sbp}/${vitals.dbp}`} />
             <MetricRow label="HR" value={vitals.hr} />
             <MetricRow label="SpO2" value={vitals.spo2} />
             <MetricRow label="Temp" value={vitals.temp} />
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground">No vitals recorded</div>
+          <div className="text-xs text-muted-foreground">No vitals recorded</div>
         )}
-        <button type="button" onClick={onAddVitals} className="mt-3 text-xs font-bold text-coral">
+        <button type="button" onClick={onAddVitals} className="mt-1.5 text-[10px] font-bold text-coral">
           + Record vitals
         </button>
       </RailCard>
 
-      <RailCard icon={<AlertCircle className="h-4 w-4" />} title="Alerts" tone="coral">
-        <div className="text-sm text-destructive">Warning: Allergy: Penicillin</div>
+      <RailCard icon={<AlertCircle className="h-4 w-4" />} title="Alerts" tone="coral" compact={inHeader}>
+        <div className="text-xs text-destructive">Warning: Allergy: Penicillin</div>
       </RailCard>
 
-      <RailCard icon={<Activity className="h-4 w-4" />} title="Timers" tone="coral">
+      <RailCard icon={<Activity className="h-4 w-4" />} title="Timers" tone="coral" compact={inHeader}>
         <MetricRow label="Since arrival" value="1m 25s" />
         <MetricRow label="Since triage" value="1m 13s" />
         <MetricRow label="Last assessment" value="—" />
       </RailCard>
 
-      <div className="rounded-[24px] bg-[#fff6e7] p-5 shadow-soft">
-        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-navy">
+      <div className={`${inHeader ? "rounded-[18px] bg-[#fff6e7] p-2.5 shadow-soft" : "rounded-[24px] bg-[#fff6e7] p-5 shadow-soft"}`}>
+        <div className="mb-2 flex items-center gap-2 text-sm font-bold text-navy">
           <span className="text-coral">✣</span>
           AI Suggestions
         </div>
         {recommendations.length ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {recommendations.slice(0, 3).map((recommendation) => (
               <div
                 key={`${recommendation.title}-${recommendation.action}`}
-                className="rounded-2xl border border-border bg-white/80 p-3"
+                className={`rounded-2xl border border-border bg-white/80 ${inHeader ? "p-2" : "p-3"}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-bold text-navy">{recommendation.title}</div>
+                  <div className="text-[12px] font-bold text-navy">{recommendation.title}</div>
                   <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-coral">
                     {recommendation.severity}
                   </span>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">{recommendation.reason}</div>
-                <div className="mt-2 text-xs font-semibold text-navy">{recommendation.action}</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{recommendation.reason}</div>
+                <div className="mt-1.5 text-[11px] font-semibold text-navy">{recommendation.action}</div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground">Select a diagnosis to see AI guidance.</div>
+          <div className="text-xs text-muted-foreground">Select a diagnosis to see AI guidance.</div>
         )}
       </div>
 
-      <RailCard icon={<ClipboardList className="h-4 w-4" />} title="Quick Orders" tone="coral">
-        <QuickOrders onOrder={onQuickOrder} />
+      <RailCard icon={<ClipboardList className="h-4 w-4" />} title="Quick Orders" tone="coral" compact={inHeader}>
+        <QuickOrders onOrder={onQuickOrder} compact={inHeader} />
       </RailCard>
     </div>
   );
 }
 
-function RailCard({ icon, title, tone, children }: { icon: ReactNode; title: string; tone: "coral" | "navy"; children: ReactNode }) {
+function HeaderSummaryStrip({
+  vitals,
+  recommendations,
+  onAddVitals,
+  onQuickOrder,
+  activePanel,
+  onTogglePanel,
+}: {
+  vitals: Record<string, string>;
+  recommendations: CopilotRecommendation[];
+  onAddVitals: () => void;
+  onQuickOrder: () => void;
+  activePanel: "vitals" | "alerts" | "timers" | "ai" | "orders" | null;
+  onTogglePanel: (panel: "vitals" | "alerts" | "timers" | "ai" | "orders") => void;
+}) {
+  const hasVitals = Object.values(vitals).some(Boolean);
+
   return (
-    <div className="rounded-[24px] bg-white p-5 shadow-soft">
-      <div className="mb-3 flex items-center gap-2 text-sm font-bold text-navy">
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <HeaderSummaryButton icon={<HeartPulse className="h-4 w-4" />} title="Vitals" subtitle={hasVitals ? "Recorded" : "Pending"} active={activePanel === "vitals"} onClick={() => onTogglePanel("vitals")} />
+        <HeaderSummaryButton icon={<AlertCircle className="h-4 w-4" />} title="Alerts" subtitle="1 warning" active={activePanel === "alerts"} onClick={() => onTogglePanel("alerts")} />
+        <HeaderSummaryButton icon={<Activity className="h-4 w-4" />} title="Timers" subtitle="Live" active={activePanel === "timers"} onClick={() => onTogglePanel("timers")} />
+        <HeaderSummaryButton icon={<Stethoscope className="h-4 w-4" />} title="AI" subtitle={`${recommendations.length} tips`} active={activePanel === "ai"} onClick={() => onTogglePanel("ai")} tone="soft" />
+        <HeaderSummaryButton icon={<ClipboardList className="h-4 w-4" />} title="Orders" subtitle="Quick actions" active={activePanel === "orders"} onClick={() => onTogglePanel("orders")} />
+      </div>
+
+      {activePanel === "vitals" ? (
+        <RailCard icon={<HeartPulse className="h-4 w-4" />} title="Vitals" tone="coral" compact>
+          {hasVitals ? (
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+              <MetricRow label="BP" value={`${vitals.sbp}/${vitals.dbp}`} />
+              <MetricRow label="HR" value={vitals.hr} />
+              <MetricRow label="SpO2" value={vitals.spo2} />
+              <MetricRow label="Temp" value={vitals.temp} />
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">No vitals recorded</div>
+          )}
+          <button type="button" onClick={onAddVitals} className="mt-1.5 text-[10px] font-bold text-coral">
+            + Record vitals
+          </button>
+        </RailCard>
+      ) : null}
+
+      {activePanel === "alerts" ? (
+        <RailCard icon={<AlertCircle className="h-4 w-4" />} title="Alerts" tone="coral" compact>
+          <div className="text-xs text-destructive">Warning: Allergy: Penicillin</div>
+        </RailCard>
+      ) : null}
+
+      {activePanel === "timers" ? (
+        <RailCard icon={<Activity className="h-4 w-4" />} title="Timers" tone="coral" compact>
+          <MetricRow label="Since arrival" value="1m 25s" />
+          <MetricRow label="Since triage" value="1m 13s" />
+          <MetricRow label="Last assessment" value="--" />
+        </RailCard>
+      ) : null}
+
+      {activePanel === "ai" ? (
+        <div className="rounded-[18px] bg-[#fff6e7] p-2.5 shadow-soft">
+          <div className="mb-2 flex items-center gap-2 text-sm font-bold text-navy">
+            <span className="text-coral">+</span>
+            AI Suggestions
+          </div>
+          {recommendations.length ? (
+            <div className="space-y-2">
+              {recommendations.slice(0, 3).map((recommendation) => (
+                <div key={`${recommendation.title}-${recommendation.action}`} className="rounded-2xl border border-border bg-white/80 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[12px] font-bold text-navy">{recommendation.title}</div>
+                    <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-coral">
+                      {recommendation.severity}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">{recommendation.reason}</div>
+                  <div className="mt-1.5 text-[11px] font-semibold text-navy">{recommendation.action}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">Select a diagnosis to see AI guidance.</div>
+          )}
+        </div>
+      ) : null}
+
+      {activePanel === "orders" ? (
+        <RailCard icon={<ClipboardList className="h-4 w-4" />} title="Quick Orders" tone="coral" compact>
+          <QuickOrders onOrder={onQuickOrder} compact />
+        </RailCard>
+      ) : null}
+    </div>
+  );
+}
+
+function HeaderSummaryButton({
+  icon,
+  title,
+  subtitle,
+  active,
+  onClick,
+  tone = "default",
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  active: boolean;
+  onClick: () => void;
+  tone?: "default" | "soft";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex min-w-[112px] items-center gap-2 rounded-full border px-3 py-2 text-left shadow-soft transition ${
+        active
+          ? "border-white/30 bg-white text-navy"
+          : tone === "soft"
+            ? "border-[#f0d9b8] bg-[#fff6e7] text-navy"
+            : "border-white/15 bg-white/10 text-white hover:bg-white/15"
+      }`}
+    >
+      <span className={active ? "text-coral" : tone === "soft" ? "text-coral" : "text-white"}>{icon}</span>
+      <span>
+        <span className={`block text-[11px] font-semibold ${active || tone === "soft" ? "text-navy" : "text-white"}`}>{title}</span>
+        <span className={`block text-[10px] ${active || tone === "soft" ? "text-muted-foreground" : "text-white/65"}`}>{subtitle}</span>
+      </span>
+    </button>
+  );
+}
+
+function RailCard({
+  icon,
+  title,
+  tone,
+  children,
+  compact,
+}: {
+  icon: ReactNode;
+  title: string;
+  tone: "coral" | "navy";
+  children: ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`${compact ? "rounded-[18px] bg-white p-2.5" : "rounded-[24px] bg-white p-5"} shadow-soft`}>
+      <div className="mb-2 flex items-center gap-2 text-sm font-bold text-navy">
         <span className={tone === "coral" ? "text-coral" : "text-navy"}>{icon}</span>
         {title}
       </div>
@@ -897,23 +1067,23 @@ function PendingPill({ text }: { text: string }) {
 
 function MetricRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-border/50 py-2 text-xs last:border-b-0 last:pb-0">
+    <div className="flex items-center justify-between border-b border-border/50 py-1.5 text-[11px] last:border-b-0 last:pb-0">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-semibold text-navy">{value}</span>
     </div>
   );
 }
 
-function QuickOrders({ onOrder }: { onOrder: () => void }) {
+function QuickOrders({ onOrder, compact }: { onOrder: () => void; compact?: boolean }) {
   const orders = ["Order CBC", "Order ECG", "Troponin I", "ABG", "Chest X-ray", "IV Cannula"];
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className={`grid grid-cols-2 ${compact ? "gap-1" : "gap-2"}`}>
       {orders.map((order) => (
         <button
           key={order}
           type="button"
           onClick={onOrder}
-          className="rounded-full border border-border bg-background px-3 py-2 text-[11px] font-semibold text-navy hover:bg-secondary/40"
+          className={`rounded-full border border-border bg-background font-semibold text-navy hover:bg-secondary/40 ${compact ? "px-2 py-1 text-[9px]" : "px-3 py-2 text-[11px]"}`}
         >
           {order}
         </button>

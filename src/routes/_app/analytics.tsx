@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/_app/analytics")({
 });
 
 type GroupId = "operational" | "clinical" | "quality";
-type RangeId = "7d" | "30d" | "90d" | "custom";
+export type RangeId = "7d" | "30d" | "90d" | "custom";
 type MetricKind = "rate" | "duration" | "count" | "score";
 type Tone = "navy" | "coral" | "amber" | "green" | "blue";
 type FootfallView = "hour" | "shift" | "day" | "month" | "year";
@@ -70,7 +70,7 @@ type ReferralView = "hour" | "weekday" | "month" | "reason";
 type LamaView = "reason" | "pincode";
 type ComplaintView = "hour" | "shift" | "day";
 
-interface Metric {
+export interface Metric {
   id: string;
   label: string;
   group: GroupId;
@@ -84,7 +84,7 @@ interface Metric {
   fmt: (v: number) => string;
 }
 
-interface DashboardFilter {
+export interface DashboardFilter {
   source: string;
   label: string;
 }
@@ -98,6 +98,8 @@ const COLORS = {
   red: "var(--urgent-critical)",
   muted: "var(--muted-foreground)",
 };
+
+const BAR_RADIUS: [number, number, number, number] = [10, 10, 0, 0];
 
 const METRICS: Metric[] = [
   { id: "iaTat", label: "Initial Assessment TAT", group: "operational", kind: "duration", baseline: 7.4, target: "<= 10 min", unit: "min", tone: "green", Icon: Clock, fmt: v => `${v.toFixed(1)} min` },
@@ -211,6 +213,7 @@ function Analytics() {
   const [custom, setCustom] = useState({ from: "", to: "" });
   const [activeFilter, setActiveFilter] = useState<DashboardFilter | null>(null);
   const [drillMetric, setDrillMetric] = useState<Metric | null>(null);
+  const [graphPatientsView, setGraphPatientsView] = useState<{ title: string; patients: typeof roster } | null>(null);
   const days = useMemo(() => dateRangeDays(range, custom), [range, custom]);
   const analyticsBindings = useMemo(() => createAnalyticsCopilotBindings(patients), [patients]);
   const filteredPatients = useMemo(() => filterPatients(patients, activeFilter), [patients, activeFilter]);
@@ -225,10 +228,18 @@ function Analytics() {
   }, [analyticsBindings, setAnalyticsBindings]);
 
   return (
-    <div className="mx-auto max-w-[1680px] space-y-5 p-5 font-sans lg:p-6">
+    <div className="mx-auto max-w-[980px] space-y-5 p-4 font-sans sm:p-5 2xl:max-w-[1400px] 2xl:p-6">
       <header className="warm-panel rounded-[1.75rem] p-4 shadow-soft">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h1 className="text-2xl font-bold tracking-tight text-navy">Performance Analytics</h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-navy">Performance Analytics</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span className="text-muted-foreground">Standardized chart view</span>
+              <Link to="/analytics-v2" className="rounded-full border border-coral/30 bg-coral/10 px-2.5 py-1 text-coral transition-colors hover:bg-coral hover:text-white">
+                Open Analytics Ver 2
+              </Link>
+            </div>
+          </div>
           <DateFilter range={range} setRange={setRange} custom={custom} setCustom={setCustom} />
         </div>
       </header>
@@ -255,29 +266,61 @@ function Analytics() {
       </div>
 
       {tab === "operational" && (
-        <Operational patients={patients} filterRatio={filterRatio} days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
+        <Operational
+          patients={patients}
+          filterRatio={filterRatio}
+          days={days}
+          activeFilter={activeFilter}
+          applyFilter={applyFilter}
+          onDrill={setDrillMetric}
+          onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
+        />
       )}
       {tab === "clinical" && (
-        <Clinical patients={patients} filterRatio={filterRatio} days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
+        <Clinical
+          patients={patients}
+          filterRatio={filterRatio}
+          days={days}
+          activeFilter={activeFilter}
+          applyFilter={applyFilter}
+          onDrill={setDrillMetric}
+          onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
+        />
       )}
       {tab === "quality" && (
-        <Quality filterRatio={filterRatio} days={days} activeFilter={activeFilter} applyFilter={applyFilter} onDrill={setDrillMetric} />
+        <Quality
+          patients={patients}
+          filterRatio={filterRatio}
+          days={days}
+          activeFilter={activeFilter}
+          applyFilter={applyFilter}
+          onDrill={setDrillMetric}
+          onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
+        />
       )}
 
       {drillMetric && (
         <MetricDrillPanel patients={patients} filterRatio={filterRatio} metric={drillMetric} days={days} activeFilter={activeFilter} onClose={() => setDrillMetric(null)} />
       )}
+      {graphPatientsView ? (
+        <GraphPatientsPanel
+          title={graphPatientsView.title}
+          patients={graphPatientsView.patients}
+          onClose={() => setGraphPatientsView(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function Operational({
+export function Operational({
   patients,
   filterRatio,
   days,
   activeFilter,
   applyFilter,
   onDrill,
+  onViewPatients,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -285,6 +328,7 @@ function Operational({
   activeFilter: DashboardFilter | null;
   applyFilter: (filter: DashboardFilter) => void;
   onDrill: (metric: Metric) => void;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   const [footfallView, setFootfallView] = useState<FootfallView>("hour");
   const [protocolView, setProtocolView] = useState<ProtocolView>("day");
@@ -326,12 +370,16 @@ function Operational({
             data={disposition}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Disposition", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
           <PieAnalyticsCard
             title="Triage Categories Distribution"
             data={triageDist}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Triage", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
           <StackedBarCard
             title="Triage Levels vs ER Disposition"
@@ -343,6 +391,8 @@ function Operational({
               source: isDispositionFilterLabel(label) ? "Disposition" : "Triage",
               label: isDispositionFilterLabel(label) ? label : String(payload?.name ?? label),
             })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
         </div>
       </Section>
@@ -351,7 +401,12 @@ function Operational({
         <div className="grid grid-cols-1 items-stretch gap-4">
           <ChartCard
             title="Footfall"
-            action={<Segmented value={footfallView} options={["hour", "shift", "day", "month", "year"]} onChange={setFootfallView} />}
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="Footfall" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={footfallView} options={["hour", "shift", "day", "month", "year"]} onChange={setFootfallView} />
+              </div>
+            }
             active={Boolean(activeFilter)}
           >
             <ResponsiveContainer width="100%" height={285}>
@@ -360,7 +415,7 @@ function Operational({
                 <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={52} />
                 <YAxis tick={axisTick} label={axisLabel("Patients")} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="patients" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="patients" radius={BAR_RADIUS}>
                   {footfallRollup.map(row => (
                     <Cell key={row.name} fill={row.patients === highestFootfall ? COLORS.coral : COLORS.navy} />
                   ))}
@@ -386,6 +441,8 @@ function Operational({
             keys={["Ambulance", "Walk In"]}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Arrival Mode", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
           <DonutCard
             title="Time Taken Breakdown by Stage"
@@ -393,6 +450,8 @@ function Operational({
             activeFilter={activeFilter}
             suggested
             onSelect={label => applyFilter({ source: "Stage Delay", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
         </div>
       </Section>
@@ -405,6 +464,8 @@ function Operational({
             keys={["Male", "Female"]}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Admission Trend", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
           <StackedBarCard
             title="Age Group with Gender Distribution"
@@ -416,16 +477,23 @@ function Operational({
               source: isGenderFilterLabel(label) ? "Gender" : "Age Group",
               label: isGenderFilterLabel(label) ? label : String(payload?.name ?? label),
             })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
         </div>
       </Section>
 
       <Section title="Beds and Protocol Orders">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <BedOccupancyTable activeFilter={activeFilter} />
+          <BedOccupancyTable activeFilter={activeFilter} patients={sectionPatients} onViewPatients={onViewPatients} />
           <ChartCard
             title="Protocol Set Ordered"
-            action={<Segmented value={protocolView} options={["day", "week", "month", "pathway"]} onChange={setProtocolView} />}
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="Protocol Set Ordered" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={protocolView} options={["day", "week", "month", "pathway"]} onChange={setProtocolView} />
+              </div>
+            }
             active={Boolean(activeFilter)}
           >
             <ResponsiveContainer width="100%" height={285}>
@@ -434,7 +502,7 @@ function Operational({
                 <XAxis type="number" tick={axisTick} label={axisLabel("Orders", "insideBottom", 0)} />
                 <YAxis dataKey="name" type="category" width={94} tick={axisTick} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <RLegend wrapperStyle={{ fontSize: 12 }} />
+                <RLegend content={<RawLegendContent />} />
                 {protocolSegmentKeys.map((key, index) => (
                   <Bar key={key} dataKey={key} stackId="protocol" fill={protocolSegmentColors[index]} radius={index === protocolSegmentKeys.length - 1 ? [0, 8, 8, 0] : [0, 0, 0, 0]} />
                 ))}
@@ -447,13 +515,14 @@ function Operational({
   );
 }
 
-function Clinical({
+export function Clinical({
   patients,
   filterRatio,
   days,
   activeFilter,
   applyFilter,
   onDrill,
+  onViewPatients,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -461,6 +530,7 @@ function Clinical({
   activeFilter: DashboardFilter | null;
   applyFilter: (filter: DashboardFilter) => void;
   onDrill: (metric: Metric) => void;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   const multiplier = filterRatio;
   const kpis = ["carePlan", "doorThromb", "doorBalloon", "investigationTat"].map(id => METRICS.find(m => m.id === id)!);
@@ -481,14 +551,18 @@ function Clinical({
 
       <Section title="Care Pathways and Daily Case Mix">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-          <ChartCard title="ER Cases by Care Pathway" active={Boolean(activeFilter)}>
+          <ChartCard
+            title="ER Cases by Care Pathway"
+            active={Boolean(activeFilter)}
+            action={<PatientListLink title="ER Cases by Care Pathway" patients={sectionPatients} onViewPatients={onViewPatients} />}
+          >
             <ResponsiveContainer width="100%" height={270}>
               <BarChart data={buildPathwayCaseRows(sectionPatients, multiplier)} margin={{ top: 20, right: 24, left: 8, bottom: 52 }} onClick={event => selectFromChart(event, "Care Pathway", applyFilter)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" interval={0} angle={-22} textAnchor="end" tick={axisTick} height={66} />
                 <YAxis tick={axisTick} label={axisLabel("Cases")} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="Total" fill={COLORS.navy} radius={[8, 8, 0, 0]}>
+                <Bar dataKey="Total" fill={COLORS.navy} radius={BAR_RADIUS}>
                   <LabelList dataKey="Total" position="top" fill={COLORS.navy} fontSize={11} />
                 </Bar>
               </BarChart>
@@ -500,37 +574,58 @@ function Clinical({
             keys={["Cases"]}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Daily ER Cases", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
           />
         </div>
       </Section>
 
       <Section title="Orders and Treatment Utilisation">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-          <RankList title="Top 15 Medications Prescribed" Icon={Pill} items={scaleRankItems(medicationsBase, multiplier)} onSelect={label => applyFilter({ source: "Medication", label })} />
-          <RankList title="Top 15 Investigations Ordered" Icon={FlaskConical} items={scaleRankItems(investigationsBase, multiplier)} onSelect={label => applyFilter({ source: "Investigation", label })} />
+          <RankList
+            title="Top 15 Medications Prescribed"
+            Icon={Pill}
+            items={scaleRankItems(medicationsBase, multiplier)}
+            onSelect={label => applyFilter({ source: "Medication", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+          />
+          <RankList
+            title="Top 15 Investigations Ordered"
+            Icon={FlaskConical}
+            items={scaleRankItems(investigationsBase, multiplier)}
+            onSelect={label => applyFilter({ source: "Investigation", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+          />
         </div>
       </Section>
     </div>
   );
 }
 
-function Quality({
+export function Quality({
+  patients,
   filterRatio,
   days,
   activeFilter,
   applyFilter,
   onDrill,
+  onViewPatients,
 }: {
+  patients: typeof roster;
   filterRatio: number;
   days: string[];
   activeFilter: DashboardFilter | null;
   applyFilter: (filter: DashboardFilter) => void;
   onDrill: (metric: Metric) => void;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   const [referralView, setReferralView] = useState<ReferralView>("reason");
   const [lamaView, setLamaView] = useState<LamaView>("reason");
   const [complaintView, setComplaintView] = useState<ComplaintView>("hour");
   const multiplier = filterRatio;
+  const sectionPatients = filterPatients(patients, activeFilter);
   const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"].map(id => METRICS.find(m => m.id === id)!);
   const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"].map(id => METRICS.find(m => m.id === id)!);
   const referralRows = buildReferralRows(referralView, multiplier);
@@ -559,7 +654,12 @@ function Quality({
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-3">
           <ChartCard
             title="Outward Referral Analysis"
-            action={<Segmented value={referralView} options={["hour", "weekday", "month", "reason"]} onChange={setReferralView} />}
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="Outward Referral Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={referralView} options={["hour", "weekday", "month", "reason"]} onChange={setReferralView} />
+              </div>
+            }
             active={Boolean(activeFilter)}
           >
             <ResponsiveContainer width="100%" height={245}>
@@ -568,7 +668,7 @@ function Quality({
                 <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
                 <YAxis tick={axisTick} label={axisLabel("Cases")} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.navy} radius={[8, 8, 0, 0]}>
+                <Bar dataKey="value" fill={COLORS.navy} radius={BAR_RADIUS}>
                   <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
                 </Bar>
               </BarChart>
@@ -577,7 +677,12 @@ function Quality({
 
           <ChartCard
             title="LAMA Analysis"
-            action={<Segmented value={lamaView} options={["reason", "pincode"]} onChange={setLamaView} />}
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="LAMA Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={lamaView} options={["reason", "pincode"]} onChange={setLamaView} />
+              </div>
+            }
             active={Boolean(activeFilter)}
           >
             <ResponsiveContainer width="100%" height={245}>
@@ -586,7 +691,7 @@ function Quality({
                 <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
                 <YAxis tick={axisTick} label={axisLabel("Cases")} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.coral} radius={[8, 8, 0, 0]}>
+                <Bar dataKey="value" fill={COLORS.coral} radius={BAR_RADIUS}>
                   <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
                 </Bar>
               </BarChart>
@@ -595,7 +700,12 @@ function Quality({
 
           <ChartCard
             title="Complaints Volume"
-            action={<Segmented value={complaintView} options={["hour", "shift", "day"]} onChange={setComplaintView} />}
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="Complaints Volume" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={complaintView} options={["hour", "shift", "day"]} onChange={setComplaintView} />
+              </div>
+            }
             active={Boolean(activeFilter)}
             suggested
           >
@@ -605,7 +715,7 @@ function Quality({
                 <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
                 <YAxis tick={axisTick} label={axisLabel("Complaints")} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.amber} radius={[8, 8, 0, 0]}>
+                <Bar dataKey="value" fill={COLORS.amber} radius={BAR_RADIUS}>
                   <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
                 </Bar>
               </BarChart>
@@ -617,7 +727,7 @@ function Quality({
   );
 }
 
-function DateFilter({
+export function DateFilter({
   range,
   setRange,
   custom,
@@ -657,7 +767,7 @@ function DateFilter({
   );
 }
 
-function FilterPill({ activeFilter, onClear }: { activeFilter: DashboardFilter | null; onClear: () => void }) {
+export function FilterPill({ activeFilter, onClear }: { activeFilter: DashboardFilter | null; onClear: () => void }) {
   if (!activeFilter) {
     return null;
   }
@@ -761,7 +871,7 @@ function ChartCard({
 }) {
   return (
     <div
-      className={`flex h-full min-h-[360px] flex-col rounded-[1.5rem] bg-card p-4 shadow-soft transition-all ${
+      className={`flex h-full min-h-[320px] flex-col rounded-[1.5rem] bg-card p-4 shadow-soft transition-all ${
         suggested ? "border-2 border-dashed border-coral/70" : "border border-border/80"
       } ${active ? "ring-2 ring-coral/10" : ""}`}
     >
@@ -774,19 +884,47 @@ function ChartCard({
   );
 }
 
+function PatientListLink({
+  title,
+  patients,
+  onViewPatients,
+}: {
+  title: string;
+  patients: typeof roster;
+  onViewPatients: (title: string, patients: typeof roster) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onViewPatients(title, patients)}
+      className="rounded-full border border-coral/30 bg-coral/10 px-2.5 py-1 text-[11px] font-semibold text-coral transition-colors hover:bg-coral hover:text-white"
+    >
+      Click for patients
+    </button>
+  );
+}
+
 function PieAnalyticsCard({
   title,
   data,
   activeFilter,
   onSelect,
+  patients,
+  onViewPatients,
 }: {
   title: string;
   data: { name: string; value: number; color: string }[];
   activeFilter: DashboardFilter | null;
   onSelect: (label: string) => void;
+  patients: typeof roster;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   return (
-    <ChartCard title={title} active={Boolean(activeFilter)}>
+    <ChartCard
+      title={title}
+      active={Boolean(activeFilter)}
+      action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+    >
       <ResponsiveContainer width="100%" height={230}>
         <PieChart>
           <Pie
@@ -826,6 +964,8 @@ function StackedBarCard({
   keys,
   activeFilter,
   onSelect,
+  patients,
+  onViewPatients,
 }: {
   title: string;
   data: Record<string, string | number>[];
@@ -833,9 +973,15 @@ function StackedBarCard({
   keys: string[];
   activeFilter: DashboardFilter | null;
   onSelect: (label: string, payload?: Record<string, string | number>) => void;
+  patients: typeof roster;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   return (
-    <ChartCard title={title} active={Boolean(activeFilter)}>
+    <ChartCard
+      title={title}
+      active={Boolean(activeFilter)}
+      action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+    >
       <ResponsiveContainer width="100%" height={265}>
         <BarChart
           data={data}
@@ -846,7 +992,7 @@ function StackedBarCard({
           <XAxis dataKey={xKey} interval={0} angle={-16} textAnchor="end" tick={axisTick} height={58} />
           <YAxis tick={axisTick} label={axisLabel("Patients")} />
           <Tooltip cursor={false} contentStyle={tooltipStyle} />
-          <RLegend wrapperStyle={{ fontSize: 12 }} />
+          <RLegend content={<RawLegendContent />} />
           {stackBars(keys)}
         </BarChart>
       </ResponsiveContainer>
@@ -860,22 +1006,30 @@ function LineAnalyticsCard({
   keys,
   activeFilter,
   onSelect,
+  patients,
+  onViewPatients,
 }: {
   title: string;
   data: Record<string, string | number>[];
   keys: string[];
   activeFilter: DashboardFilter | null;
   onSelect: (label: string) => void;
+  patients: typeof roster;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   return (
-    <ChartCard title={title} active={Boolean(activeFilter)}>
+    <ChartCard
+      title={title}
+      active={Boolean(activeFilter)}
+      action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+    >
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={data} margin={{ top: 20, right: 28, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, title, (_, payload) => onSelect(String(payload?.name ?? title)))}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="name" interval="preserveStartEnd" angle={-16} textAnchor="end" tick={axisTick} height={58} />
           <YAxis tick={axisTick} label={axisLabel("Value")} />
           <Tooltip cursor={false} contentStyle={tooltipStyle} />
-          {keys.length > 1 && <RLegend wrapperStyle={{ fontSize: 12 }} />}
+          {keys.length > 1 && <RLegend content={<RawLegendContent />} />}
           {keys.map((key, index) => (
             <Line
               key={key}
@@ -900,15 +1054,24 @@ function DonutCard({
   activeFilter,
   suggested,
   onSelect,
+  patients,
+  onViewPatients,
 }: {
   title: string;
   data: { name: string; value: number; color: string }[];
   activeFilter: DashboardFilter | null;
   suggested?: boolean;
   onSelect: (label: string) => void;
+  patients: typeof roster;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   return (
-    <ChartCard title={title} active={Boolean(activeFilter)} suggested={suggested}>
+    <ChartCard
+      title={title}
+      active={Boolean(activeFilter)}
+      suggested={suggested}
+      action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+    >
       <ResponsiveContainer width="100%" height={245}>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" innerRadius={52} outerRadius={86} paddingAngle={4} label={({ value }) => `${value}m`} labelLine={false} onClick={(row: { name: string }) => onSelect(row.name)}>
@@ -980,19 +1143,26 @@ function RankList({
   Icon,
   items,
   onSelect,
+  patients,
+  onViewPatients,
 }: {
   title: string;
   Icon: typeof Pill;
   items: { name: string; value: number }[];
   onSelect: (label: string) => void;
+  patients: typeof roster;
+  onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   const max = Math.max(...items.map(item => item.value));
   return (
     <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
-      <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-navy">
-        <Icon className="h-4 w-4 text-coral" />
-        {title}
-      </h3>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="inline-flex items-center gap-2 text-sm font-bold text-navy">
+          <Icon className="h-4 w-4 text-coral" />
+          {title}
+        </h3>
+        <PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />
+      </div>
       <ol className="space-y-2">
         {items.map((item, index) => (
           <li key={item.name}>
@@ -1011,7 +1181,15 @@ function RankList({
   );
 }
 
-function BedOccupancyTable({ activeFilter }: { activeFilter: DashboardFilter | null }) {
+function BedOccupancyTable({
+  activeFilter,
+  patients,
+  onViewPatients,
+}: {
+  activeFilter: DashboardFilter | null;
+  patients: typeof roster;
+  onViewPatients: (title: string, patients: typeof roster) => void;
+}) {
   const multiplier = filterMultiplier(activeFilter);
   return (
     <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
@@ -1020,7 +1198,10 @@ function BedOccupancyTable({ activeFilter }: { activeFilter: DashboardFilter | n
           <h3 className="text-sm font-bold text-navy">Bed Occupancy by Area</h3>
           <p className="text-xs text-muted-foreground">Capacity view restored as a table</p>
         </div>
-        <Bed className="h-5 w-5 text-coral" />
+        <div className="flex items-center gap-2">
+          <PatientListLink title="Bed Occupancy by Area" patients={patients} onViewPatients={onViewPatients} />
+          <Bed className="h-5 w-5 text-coral" />
+        </div>
       </div>
       <div className="overflow-hidden rounded-2xl border border-border/70">
         <table className="w-full text-sm">
@@ -1055,7 +1236,7 @@ function BedOccupancyTable({ activeFilter }: { activeFilter: DashboardFilter | n
   );
 }
 
-function MetricDrillPanel({
+export function MetricDrillPanel({
   patients,
   filterRatio,
   metric,
@@ -1164,7 +1345,7 @@ function MetricDrillPanel({
                   <XAxis dataKey="name" interval={0} angle={-20} textAnchor="end" tick={axisTick} height={64} />
                   <YAxis tick={axisTick} label={axisLabel("Hours")} />
                   <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                  <Bar dataKey="Value" fill={COLORS.coral} radius={[8, 8, 0, 0]}>
+                  <Bar dataKey="Value" fill={COLORS.coral} radius={BAR_RADIUS}>
                     <LabelList dataKey="Value" position="top" fill={COLORS.navy} fontSize={11} formatter={(value: number) => value.toFixed(1)} />
                   </Bar>
                 </BarChart>
@@ -1242,9 +1423,9 @@ function MetricDrillPanel({
                   <YAxis tick={axisTick} allowDecimals={false} label={axisLabel("Patients")} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="ED Active" stackId="provider" fill="var(--color-ED Active)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="Observation" stackId="provider" fill="var(--color-Observation)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="Discharged" stackId="provider" fill="var(--color-Discharged)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="ED Active" stackId="provider" fill="var(--color-ED Active)" radius={BAR_RADIUS} />
+                  <Bar dataKey="Observation" stackId="provider" fill="var(--color-Observation)" radius={BAR_RADIUS} />
+                  <Bar dataKey="Discharged" stackId="provider" fill="var(--color-Discharged)" radius={BAR_RADIUS} />
                 </BarChart>
               </ChartContainer>
             </div>
@@ -1252,8 +1433,16 @@ function MetricDrillPanel({
 
           <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-card shadow-soft">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <div className="text-sm font-bold text-navy">Patient Snapshot</div>
-              <div className="text-xs font-semibold text-muted-foreground">{patientRows.length} records</div>
+              <div>
+                <div className="text-sm font-bold text-navy">Patient Snapshot</div>
+                <div className="text-xs text-muted-foreground">Click through to the patient chart from this graph drilldown.</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-xs font-semibold text-muted-foreground">{patientRows.length} records</div>
+                <Link to="/patients" className="rounded-full border border-coral/30 bg-coral/10 px-2.5 py-1 text-[11px] font-semibold text-coral transition-colors hover:bg-coral hover:text-white">
+                  Click to view patients
+                </Link>
+              </div>
             </div>
             <div className="overflow-auto">
               <table className="w-full text-sm">
@@ -1265,22 +1454,100 @@ function MetricDrillPanel({
                     <th className="px-4 py-2 text-left">Pathway</th>
                     <th className="px-4 py-2 text-left">Physician</th>
                     <th className="px-4 py-2 text-left">Status</th>
+                    <th className="px-4 py-2 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {patientRows.map(patient => (
                     <tr key={patient.key} className="border-t border-border">
-                      <td className="px-4 py-2 font-bold text-navy">{patient.name}</td>
+                      <td className="px-4 py-2 font-bold text-navy">
+                        <Link to="/patient/$id/workspace" params={{ id: patient.key }} className="transition-colors hover:text-coral">
+                          {patient.name}
+                        </Link>
+                      </td>
                       <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
                       <td className="px-4 py-2 text-muted-foreground">Level {patient.triage || "Pending"}</td>
                       <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
                       <td className="px-4 py-2 text-muted-foreground">{patient.physician}</td>
                       <td className="px-4 py-2 text-muted-foreground">{patient.status}</td>
+                      <td className="px-4 py-2 text-right">
+                        <Link to="/patient/$id/workspace" params={{ id: patient.key }} className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral">
+                          Open chart
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GraphPatientsPanel({
+  title,
+  patients,
+  onClose,
+}: {
+  title: string;
+  patients: typeof roster;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+      <div className="max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[2rem] bg-background shadow-soft-lg" onClick={event => event.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
+          <div>
+            <h3 className="font-bold text-navy">{title}</h3>
+            <p className="text-xs font-medium text-muted-foreground">Patient list linked from this graph</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-xs font-semibold text-muted-foreground">{patients.length} records</div>
+            <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-secondary">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-auto p-5">
+          <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-card shadow-soft">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/60 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left">Patient</th>
+                  <th className="px-4 py-2 text-left">UMR</th>
+                  <th className="px-4 py-2 text-left">Triage</th>
+                  <th className="px-4 py-2 text-left">Bed</th>
+                  <th className="px-4 py-2 text-left">Pathway</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patients.map(patient => (
+                  <tr key={patient.id} className="border-t border-border">
+                    <td className="px-4 py-2 font-bold text-navy">
+                      <Link to="/patient/$id/workspace" params={{ id: patient.id }} className="transition-colors hover:text-coral">
+                        {patient.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
+                    <td className="px-4 py-2 text-muted-foreground">Level {patient.triage || "Pending"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{patient.bed}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{patient.status}</td>
+                    <td className="px-4 py-2 text-right">
+                      <Link to="/patient/$id/workspace" params={{ id: patient.id }} className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral">
+                        Open chart
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1297,19 +1564,38 @@ function stackBars(keys: string[]) {
 
 function Legend({ items }: { items: { name: string; value: number; color: string }[] }) {
   return (
-    <div className="mt-2 grid grid-cols-2 gap-1.5">
+    <div className="mt-3 flex flex-wrap gap-2">
       {items.map(item => (
-        <button key={item.name} className="flex items-center gap-2 rounded-lg px-1 py-0.5 text-xs transition-colors hover:bg-secondary/60">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
-          <span className="text-navy">{item.name}</span>
-          <span className="ml-auto font-bold tabular-nums text-navy">{item.value}</span>
+        <button key={item.name} className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/35 px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:bg-secondary/60">
+          <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: item.color }} />
+          <span>{item.name}</span>
+          <span className="font-bold tabular-nums text-navy">{item.value}</span>
         </button>
       ))}
     </div>
   );
 }
 
-function dateRangeDays(range: RangeId, custom: { from: string; to: string }) {
+function RawLegendContent(props: ComponentProps<typeof RLegend>) {
+  const payload = props.payload?.filter(item => item.type !== "none") ?? [];
+
+  if (!payload.length) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
+      {payload.map(item => (
+        <div key={`${item.dataKey ?? item.value}`} className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/35 px-2.5 py-1 text-[11px] font-semibold text-navy">
+          <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: item.color ?? COLORS.navy }} />
+          <span>{String(item.value ?? item.dataKey ?? "")}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function dateRangeDays(range: RangeId, custom: { from: string; to: string }) {
   const out: string[] = [];
   const today = new Date();
   if (range === "custom" && custom.from && custom.to) {

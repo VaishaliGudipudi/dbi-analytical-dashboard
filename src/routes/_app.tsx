@@ -36,6 +36,7 @@ const adminNav = [
 
 const analyticsNav = [
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/analytics-v2", label: "Analytics Ver 2", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -68,19 +69,19 @@ function AppShell() {
     <CopilotProvider>
       <CopilotRouteBindings currentPath={path} patients={patients} role={user.role} />
       <div className="min-h-screen flex flex-col bg-background">
-        <header className="h-14 flex items-center justify-between px-4 text-navy-foreground shadow-soft sticky top-0 z-40" style={{ background: "var(--navy)" }}>
+        <header className="h-14 flex items-center justify-between gap-3 px-3 sm:px-4 text-navy-foreground shadow-soft sticky top-0 z-40" style={{ background: "var(--navy)" }}>
           <div className="flex items-center gap-3">
             <img src={logo} alt="Discover BioInsights" className="h-10 w-10 object-contain" />
-            <div>
+            <div className="min-w-0">
               <div className="text-sm font-semibold tracking-tight">Discover BioInsights</div>
-              <div className="text-[11px] opacity-70 -mt-0.5">Emergency Analytics Platform</div>
+              <div className="hidden sm:block text-[11px] opacity-70 -mt-0.5">Emergency Analytics Platform</div>
             </div>
           </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <CopilotHeaderButton />
               {user.role === "analytics" ? (
                 <button onClick={() => setReportsOpen(true)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
+                  className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
                   <FileText className="h-4 w-4" /> Reports
                 </button>
               ) : null}
@@ -89,11 +90,11 @@ function AppShell() {
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-orange" />
             </button>
             <div className="relative" ref={profileRef}>
-              <button onClick={() => setProfileOpen(o => !o)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+              <button onClick={() => setProfileOpen(o => !o)} className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
                 <div className="h-7 w-7 rounded-full bg-coral grid place-items-center text-xs font-semibold">
                   {user.name.split(" ").map(n => n[0]).slice(0, 2).join("")}
                 </div>
-                <div className="text-sm leading-tight text-left">
+                <div className="hidden lg:block text-sm leading-tight text-left">
                   <div className="font-medium">{user.name}</div>
                   <div className="text-[10px] uppercase tracking-wider opacity-70">{user.role}</div>
                 </div>
@@ -117,7 +118,7 @@ function AppShell() {
         </header>
 
         <div className="flex flex-1 min-h-0">
-          <aside className={`${collapsed ? "w-16" : "w-56"} sticky top-14 h-[calc(100vh-3.5rem)] shrink-0 transition-all flex flex-col text-sidebar-foreground shadow-soft`} style={{ background: "var(--sidebar)" }}>
+          <aside className={`${collapsed ? "xl:w-16" : "xl:w-56"} w-16 sticky top-14 h-[calc(100vh-3.5rem)] shrink-0 transition-all flex flex-col text-sidebar-foreground shadow-soft`} style={{ background: "var(--sidebar)" }}>
             <nav className="flex-1 p-2 space-y-1">
               {nav.map(({ to, label, icon: Icon }) => {
                 const active = path === to || path.startsWith(to + "/");
@@ -125,13 +126,13 @@ function AppShell() {
                   <Link key={to} to={to}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${active ? "bg-orange text-orange-foreground font-semibold shadow-soft" : "hover:bg-white/5"}`}>
                     <Icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && <span>{label}</span>}
+                    {!collapsed && <span className="hidden xl:inline">{label}</span>}
                   </Link>
                 );
               })}
             </nav>
             <button onClick={() => setCollapsed(c => !c)}
-              className="m-2 h-9 rounded-xl hover:bg-orange/10 grid place-items-center text-sm transition-colors">
+              className="hidden xl:grid m-2 h-9 rounded-xl hover:bg-orange/10 place-items-center text-sm transition-colors">
               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </button>
           </aside>
@@ -177,7 +178,7 @@ function CopilotRouteBindings({
   useEffect(() => {
       const routeAliases =
         role === "analytics"
-          ? ["/analytics", "/settings"]
+          ? ["/analytics", "/analytics-v2", "/settings"]
           : ["/dashboard", "/patients", "/register", "/settings", "/masters/medications", "/masters/lab-panels", "/rapid"];
       setRouteBindings({
         currentRoute: currentPath,
