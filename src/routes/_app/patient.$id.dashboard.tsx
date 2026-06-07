@@ -173,7 +173,13 @@ function PatientDashboardPage() {
           assessments={workspaceDraft.nursingAssessments ?? []}
           patientName={overview.patient.name}
           umr={overview.patient.umr}
+          patientAge={overview.patient.age}
+          patientSex={overview.patient.sex}
+          bedNumber={overview.patient.bed}
           assignedDoctorName={overview.careTeam.doctor}
+          admissionDateTime={overview.patient.checkIn}
+          triageLabel={overview.identity.triageLabel}
+          chiefComplaint={overview.complaints.chiefComplaint}
           canEdit={false}
           currentUserName={user?.name}
           onClose={() => setShowNursingAssessment(false)}

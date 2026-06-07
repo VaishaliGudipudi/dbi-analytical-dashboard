@@ -60,11 +60,42 @@ export interface NursingIvFluidEntry {
   signWithName: string;
 }
 
+export interface NursingInvestigationEntry {
+  id: string;
+  investigation: string;
+  orderedAt: string;
+  status: string;
+  resultSummary: string;
+}
+
 export interface NursingAssessmentRecord {
   id: string;
   createdAt: string;
   createdBy: string;
   dateTime: string;
+  abhaId: string;
+  dateOfAdmission: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelation: string;
+  arrivalMode: string;
+  informedBy: string;
+  returnToErWithin72Hours: string;
+  broughtBy: string;
+  ambulanceOrReferralId: string;
+  mlcCase: string;
+  policeStation: string;
+  mlcNumber: string;
+  inwardReferral: string;
+  referralFacility: string;
+  referralReason: string;
+  triageCondition: string;
+  triageLevel: string;
+  mewsScore: string;
+  oxygenMode: string;
+  gcsEye: string;
+  gcsVerbal: string;
+  gcsMotor: string;
   vulnerablePatient: boolean;
   restraints: boolean;
   drugAllergy: boolean;
@@ -72,6 +103,7 @@ export interface NursingAssessmentRecord {
   bedSore: boolean;
   dvt: boolean;
   yesDetails: string;
+  chiefComplaint: string;
   mainComplaintsAndFindings: string;
   pulseRate: string;
   bloodPressure: string;
@@ -81,8 +113,40 @@ export interface NursingAssessmentRecord {
   rbs: string;
   oxygenSaturation: string;
   painScore: string;
+  airwayStatus: string;
+  airwayNotes: string;
+  breathingStatus: string;
+  breathingNotes: string;
+  circulationStatus: string;
+  circulationNotes: string;
+  disabilityStatus: string;
+  disabilityNotes: string;
+  exposureStatus: string;
+  exposureNotes: string;
+  headAssessment: string;
+  neckChestAssessment: string;
+  upperLimbsAssessment: string;
+  lowerLimbsAssessment: string;
+  abdomenAssessment: string;
+  backAssessment: string;
+  pelvisGenitourinaryAssessment: string;
+  skinAssessment: string;
+  othersAssessment: string;
+  bodyMarkingsFront: string;
+  bodyMarkingsBack: string;
+  focusedHistorySample: string;
+  pastMedicalHistory: string;
+  surgicalHistory: string;
+  familyHistory: string;
+  allergicHistory: string;
+  immunizationHistory: string;
+  reasonForEmergencyAdmission: string;
+  lifestyleHabits: string;
+  emotionalState: string;
+  physiologicalIndicators: string;
+  nutritionalAssessment: string;
   bedSoreGrade: string;
-  investigationSent: string;
+  investigationsChart: NursingInvestigationEntry[];
   statMedications: NursingStatMedicationEntry[];
   intravenousFluids: NursingIvFluidEntry[];
   nurseNotes: string;

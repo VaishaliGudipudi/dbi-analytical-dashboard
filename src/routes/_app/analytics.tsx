@@ -373,7 +373,7 @@ export function Operational({
   const triageVsDispo = buildTriageDispositionRows(sectionPatients);
   const protocolRows = buildProtocolStackRows(protocolView, multiplier);
   const stageData = [
-    { name: "Registration", value: scale(11, multiplier), color: getEntityColor("Registration", COLORS.green) },
+    { name: "Registration", value: scale(11, multiplier), color: COLORS.muted },
     { name: "Triage", value: scale(16, multiplier), color: getEntityColor("Triage", COLORS.amber) },
     { name: "Consult", value: scale(42, multiplier), color: getEntityColor("Consult", COLORS.coral) },
     { name: "Investigations", value: scale(67, multiplier), color: getEntityColor("Investigations", COLORS.blue) },
@@ -435,7 +435,6 @@ export function Operational({
               </div>
             }
             active={Boolean(activeFilter)}
-            suggested
           >
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={footfallRollup} margin={{ top: 20, right: 18, left: 8, bottom: 36 }} onClick={event => selectFromChart(event, "Footfall", applyFilter)}>
@@ -471,7 +470,6 @@ export function Operational({
             onSelect={label => applyFilter({ source: "Arrival Mode", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
-            suggested
           />
           <DonutCard
             title="Time Taken Breakdown by Stage"
@@ -999,14 +997,14 @@ function StackedBarCard({
       suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
     >
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={330}>
         <BarChart
           data={data}
-          margin={{ top: 24, right: 18, left: 8, bottom: 48 }}
+          margin={{ top: 24, right: 18, left: 8, bottom: 58 }}
           onClick={event => selectFromChart(event, title, (_, payload, seriesKey) => onSelect(seriesKey ?? String(payload?.name ?? payload?.[xKey] ?? title), payload))}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey={xKey} interval={0} angle={-16} textAnchor="end" tick={axisTick} height={58} />
+          <XAxis dataKey={xKey} interval={0} angle={-16} textAnchor="end" tick={axisTick} height={64} />
           <YAxis tick={axisTick} label={axisLabel("Patients")} />
           <Tooltip cursor={false} contentStyle={tooltipStyle} />
           <RLegend content={<RawLegendContent />} />
@@ -1312,8 +1310,8 @@ export function MetricDrillPanel({
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Trend</div>
                 <div className="mt-1 text-lg font-bold text-navy">Admission vs Discharge MEWS</div>
               </div>
-              <div className="rounded-2xl border border-coral/30 bg-coral/10 p-4 shadow-soft">
-                <div className="text-xs font-bold uppercase tracking-[0.14em] text-coral">Admission</div>
+              <div className="rounded-2xl border border-navy/20 bg-navy/5 p-4 shadow-soft">
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-navy">Admission</div>
                 <div className="mt-1 text-2xl font-bold text-navy">{(series[series.length - 1] as any)?.Admission?.toFixed?.(1) ?? "4.6"}</div>
               </div>
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-soft">
@@ -1613,7 +1611,7 @@ function RawLegendContent(props: ComponentProps<typeof RLegend>) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
+    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4">
       {payload.map(item => (
         <div key={`${item.dataKey ?? item.value}`} className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/35 px-2 py-0.5 text-[10px] font-semibold text-navy">
           <span className="h-2 w-2 rounded-full" style={{ background: item.color ?? COLORS.navy }} />

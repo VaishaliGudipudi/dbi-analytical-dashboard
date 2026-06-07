@@ -675,7 +675,14 @@ function Workspace() {
               assessments={nursingAssessments}
               patientName={patient.name}
               umr={patient.umr}
+              patientAge={patient.age}
+              patientSex={patient.sex}
+              bedNumber={patient.bed}
               assignedDoctorName={patient.physician}
+              admissionDateTime={patient.checkIn}
+              triageLabel={triageMeta[patient.triage].sub}
+              chiefComplaint={chiefComplaint}
+              vitals={vitals}
               canEdit
               embedded
               currentUserName={user?.name}
@@ -792,7 +799,14 @@ function Workspace() {
           assessments={nursingAssessments}
           patientName={patient.name}
           umr={patient.umr}
+          patientAge={patient.age}
+          patientSex={patient.sex}
+          bedNumber={patient.bed}
           assignedDoctorName={patient.physician}
+          admissionDateTime={patient.checkIn}
+          triageLabel={triageMeta[patient.triage].sub}
+          chiefComplaint={chiefComplaint}
+          vitals={vitals}
           canEdit={user?.role === "nurse" || user?.role === "admin"}
           currentUserName={user?.name}
           onClose={() => setShowNursingAssessment(false)}
