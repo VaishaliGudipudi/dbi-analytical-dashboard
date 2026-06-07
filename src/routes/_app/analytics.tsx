@@ -115,12 +115,12 @@ const ENTITY_COLORS = {
   LAMA: COLORS.amber,
   Expired: COLORS.red,
   Ambulance: COLORS.blue,
-  "Walk In": COLORS.green,
-  Infusions: COLORS.green,
+  "Walk In": COLORS.navy,
+  Infusions: COLORS.amber,
   Investigations: COLORS.blue,
   Medications: COLORS.coral,
-  Procedures: COLORS.amber,
-  Registration: COLORS.green,
+  Procedures: COLORS.navy,
+  Registration: COLORS.blue,
   Triage: COLORS.amber,
   Consult: COLORS.coral,
   Disposition: COLORS.navy,
@@ -132,25 +132,25 @@ const ENTITY_COLORS = {
 } as const;
 
 const METRICS: Metric[] = [
-  { id: "iaTat", label: "Initial Assessment TAT", group: "operational", kind: "duration", baseline: 7.4, target: "<= 10 min", unit: "min", tone: "green", Icon: Clock, fmt: v => `${v.toFixed(1)} min` },
+  { id: "iaTat", label: "Initial Assessment TAT", group: "operational", kind: "duration", baseline: 7.4, target: "<= 10 min", unit: "min", tone: "navy", Icon: Clock, fmt: v => `${v.toFixed(1)} min` },
   { id: "erTat", label: "ER TAT", group: "operational", kind: "duration", baseline: 142, target: "<= 180 min", unit: "min", tone: "navy", Icon: Activity, fmt: v => `${Math.round(v)} min` },
-  { id: "avgLos", label: "Average LOS", group: "operational", kind: "duration", baseline: 3.8, target: "ER stay", unit: "hr", tone: "amber", Icon: TimerReset, isNew: true, fmt: v => `${v.toFixed(1)} hr` },
+  { id: "avgLos", label: "Average LOS", group: "operational", kind: "duration", baseline: 3.8, target: "ER stay", unit: "hr", tone: "blue", Icon: TimerReset, isNew: true, fmt: v => `${v.toFixed(1)} hr` },
   { id: "dispositionTat", label: "Disposition Processing", group: "operational", kind: "duration", baseline: 34, target: "Decision to exit", unit: "min", tone: "coral", Icon: Clock, isNew: true, fmt: v => `${Math.round(v)} min` },
-  { id: "bedOcc", label: "Bed Occupancy", group: "operational", kind: "rate", baseline: 0.84, target: "<= 85%", unit: "%", tone: "amber", Icon: Bed, fmt: v => `${Math.round(v * 100)}%` },
+  { id: "bedOcc", label: "Bed Occupancy", group: "operational", kind: "rate", baseline: 0.84, target: "<= 85%", unit: "%", tone: "blue", Icon: Bed, fmt: v => `${Math.round(v * 100)}%` },
   { id: "ppd", label: "Patients / Doctor", group: "operational", kind: "count", baseline: 14.2, target: "Shift load", tone: "navy", Icon: UserCheck, fmt: v => v.toFixed(1) },
   { id: "ppn", label: "Patients / Nurse", group: "operational", kind: "count", baseline: 8.6, target: "Shift load", tone: "blue", Icon: Users, isNew: true, fmt: v => v.toFixed(1) },
   { id: "mlcCases", label: "MLC Cases", group: "operational", kind: "count", baseline: 5.4, target: "Daily avg", tone: "coral", Icon: AlertTriangle, fmt: v => `${Math.round(v)}` },
-  { id: "carePlan", label: "Care Plan Compliance", group: "clinical", kind: "rate", baseline: 0.912, target: ">= 90%", unit: "%", tone: "navy", Icon: ShieldCheck, fmt: v => `${(v * 100).toFixed(1)}%` },
-  { id: "doorThromb", label: "Door to Thrombolysis", group: "clinical", kind: "duration", baseline: 43, target: "<= 60 min", unit: "min", tone: "green", Icon: Clock, fmt: v => `${Math.round(v)} min` },
+  { id: "carePlan", label: "Care Plan Compliance", group: "clinical", kind: "rate", baseline: 0.912, target: ">= 90%", unit: "%", tone: "blue", Icon: ShieldCheck, fmt: v => `${(v * 100).toFixed(1)}%` },
+  { id: "doorThromb", label: "Door to Thrombolysis", group: "clinical", kind: "duration", baseline: 43, target: "<= 60 min", unit: "min", tone: "coral", Icon: Clock, fmt: v => `${Math.round(v)} min` },
   { id: "doorBalloon", label: "Door to Balloon", group: "clinical", kind: "duration", baseline: 78, target: "<= 90 min", unit: "min", tone: "coral", Icon: HeartPulse, fmt: v => `${Math.round(v)} min` },
   { id: "investigationTat", label: "Investigation TAT", group: "clinical", kind: "duration", baseline: 39, target: "Result turnaround", unit: "min", tone: "navy", Icon: FlaskConical, isNew: true, fmt: v => `${Math.round(v)} min` },
   { id: "mortality", label: "ER Mortality", group: "quality", kind: "rate", baseline: 0.018, target: "<= 2%", unit: "%", tone: "coral", Icon: Skull, fmt: v => `${(v * 100).toFixed(2)}%` },
   { id: "lamaRate", label: "LAMA Rate", group: "quality", kind: "rate", baseline: 0.048, target: "<= 5%", unit: "%", tone: "coral", Icon: AlertTriangle, fmt: v => `${(v * 100).toFixed(2)}%` },
-  { id: "lwbsRate", label: "LWBS Rate", group: "quality", kind: "rate", baseline: 0.026, target: "<= 3%", unit: "%", tone: "amber", Icon: Eraser, isNew: true, fmt: v => `${(v * 100).toFixed(2)}%` },
-  { id: "readmit72", label: "72-Hour Readmission", group: "quality", kind: "rate", baseline: 0.034, target: "<= 5%", unit: "%", tone: "amber", Icon: Repeat, fmt: v => `${(v * 100).toFixed(2)}%` },
-  { id: "returnRate", label: "Return After Discharge", group: "quality", kind: "rate", baseline: 0.051, target: "<= 6%", unit: "%", tone: "amber", Icon: RotateCcw, fmt: v => `${(v * 100).toFixed(2)}%` },
-  { id: "satisfaction", label: "Patient Satisfaction", group: "quality", kind: "rate", baseline: 0.884, target: "Experience score", unit: "%", tone: "green", Icon: Sparkles, isNew: true, fmt: v => `${Math.round(v * 100)}%` },
-  { id: "bedCleaning", label: "Bed Cleaning Compliance", group: "quality", kind: "rate", baseline: 0.91, target: "Protocol adherence", unit: "%", tone: "green", Icon: Bed, isNew: true, fmt: v => `${Math.round(v * 100)}%` },
+  { id: "lwbsRate", label: "LWBS Rate", group: "quality", kind: "rate", baseline: 0.026, target: "<= 3%", unit: "%", tone: "coral", Icon: Eraser, isNew: true, fmt: v => `${(v * 100).toFixed(2)}%` },
+  { id: "readmit72", label: "72-Hour Readmission", group: "quality", kind: "rate", baseline: 0.034, target: "<= 5%", unit: "%", tone: "coral", Icon: Repeat, fmt: v => `${(v * 100).toFixed(2)}%` },
+  { id: "returnRate", label: "Return After Discharge", group: "quality", kind: "rate", baseline: 0.051, target: "<= 6%", unit: "%", tone: "coral", Icon: RotateCcw, fmt: v => `${(v * 100).toFixed(2)}%` },
+  { id: "satisfaction", label: "Patient Satisfaction", group: "quality", kind: "rate", baseline: 0.884, target: "Experience score", unit: "%", tone: "navy", Icon: Sparkles, isNew: true, fmt: v => `${Math.round(v * 100)}%` },
+  { id: "bedCleaning", label: "Bed Cleaning Compliance", group: "quality", kind: "rate", baseline: 0.91, target: "Protocol adherence", unit: "%", tone: "blue", Icon: Bed, isNew: true, fmt: v => `${Math.round(v * 100)}%` },
   { id: "bedCleaningTat", label: "Bed Cleaning TAT", group: "quality", kind: "duration", baseline: 18, target: "Ready for next patient", unit: "min", tone: "blue", Icon: TimerReset, isNew: true, fmt: v => `${Math.round(v)} min` },
 ];
 
@@ -273,13 +273,14 @@ function Analytics() {
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1.5 rounded-2xl bg-secondary/70 p-1.5">
-          {[
-            { id: "operational" as const, label: "Operational" },
-            { id: "clinical" as const, label: "Clinical" },
-          ].map(item => (
-            <button
-              key={item.id}
+      <div className="flex gap-1.5 rounded-2xl bg-secondary/70 p-1.5">
+        {[
+          { id: "operational" as const, label: "Operational" },
+          { id: "clinical" as const, label: "Clinical" },
+          { id: "quality" as const, label: "Quality & Safety" },
+        ].map(item => (
+          <button
+            key={item.id}
               onClick={() => setTab(item.id)}
               className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
                 tab === item.id ? "bg-coral text-white shadow-soft" : "text-muted-foreground hover:bg-white hover:text-navy"
@@ -305,6 +306,17 @@ function Analytics() {
       )}
       {tab === "clinical" && (
         <Clinical
+          patients={patients}
+          filterRatio={filterRatio}
+          days={days}
+          activeFilter={activeFilter}
+          applyFilter={applyFilter}
+          onDrill={setDrillMetric}
+          onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
+        />
+      )}
+      {tab === "quality" && (
+        <Quality
           patients={patients}
           filterRatio={filterRatio}
           days={days}
@@ -345,15 +357,28 @@ export function Operational({
   onDrill: (metric: Metric) => void;
   onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
+  const [footfallView, setFootfallView] = useState<FootfallView>("hour");
   const [protocolView, setProtocolView] = useState<ProtocolView>("day");
   const multiplier = filterRatio;
   const existingMetricIds = ["iaTat", "erTat", "bedOcc", "ppd", "mlcCases"];
+  const suggestedMetricIds = ["avgLos", "dispositionTat", "ppn"];
   const existingMetrics = existingMetricIds.map(id => METRICS.find(m => m.id === id)!);
+  const suggestedMetrics = suggestedMetricIds.map(id => METRICS.find(m => m.id === id)!);
+  const footfall = buildFootfall(days, multiplier);
+  const footfallRollup = rollupFootfall(footfallView, footfall);
+  const highestFootfall = Math.max(...footfallRollup.map(row => row.patients));
   const sectionPatients = filterPatients(patients, activeFilter);
   const triageDist = buildTriagePieRows(sectionPatients);
   const disposition = buildDispositionPieRows(sectionPatients);
   const triageVsDispo = buildTriageDispositionRows(sectionPatients);
   const protocolRows = buildProtocolStackRows(protocolView, multiplier);
+  const stageData = [
+    { name: "Registration", value: scale(11, multiplier), color: getEntityColor("Registration", COLORS.green) },
+    { name: "Triage", value: scale(16, multiplier), color: getEntityColor("Triage", COLORS.amber) },
+    { name: "Consult", value: scale(42, multiplier), color: getEntityColor("Consult", COLORS.coral) },
+    { name: "Investigations", value: scale(67, multiplier), color: getEntityColor("Investigations", COLORS.blue) },
+    { name: "Disposition", value: scale(34, multiplier), color: getEntityColor("Disposition", COLORS.navy) },
+  ];
 
   return (
     <div className="space-y-5">
@@ -399,8 +424,78 @@ export function Operational({
         </div>
       </Section>
 
-      <Section title="Patient Demographics">
+      <Section title="Footfall">
         <div className="grid grid-cols-1 items-stretch gap-4">
+          <ChartCard
+            title="Footfall"
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="Footfall" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={footfallView} options={["hour", "shift", "day", "month", "year"]} onChange={setFootfallView} />
+              </div>
+            }
+            active={Boolean(activeFilter)}
+            suggested
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={footfallRollup} margin={{ top: 20, right: 18, left: 8, bottom: 36 }} onClick={event => selectFromChart(event, "Footfall", applyFilter)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={52} />
+                <YAxis tick={axisTick} label={axisLabel("Patients")} />
+                <Tooltip cursor={false} contentStyle={tooltipStyle} />
+                <Bar dataKey="patients" radius={BAR_RADIUS}>
+                  {footfallRollup.map(row => (
+                    <Cell key={row.name} fill={row.patients === highestFootfall ? COLORS.coral : COLORS.navy} />
+                  ))}
+                  <LabelList dataKey="patients" position="top" fill={COLORS.navy} fontSize={11} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+      </Section>
+
+      <Section title="Arrival and Stage Time">
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          {suggestedMetrics.map(metric => (
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+          <StackedBarCard
+            title="Ambulance vs Walk In"
+            data={footfall.slice(-10).map(row => ({ name: fmtShort(row.date), Ambulance: row.ambulance, "Walk In": row.walkIn }))}
+            xKey="name"
+            keys={["Ambulance", "Walk In"]}
+            activeFilter={activeFilter}
+            onSelect={label => applyFilter({ source: "Arrival Mode", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+            suggested
+          />
+          <DonutCard
+            title="Time Taken Breakdown by Stage"
+            data={stageData}
+            activeFilter={activeFilter}
+            suggested
+            onSelect={label => applyFilter({ source: "Stage Delay", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+          />
+        </div>
+      </Section>
+
+      <Section title="Patient Demographics">
+        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+          <LineAnalyticsCard
+            title="Male vs Female Admission Trends"
+            data={footfall.map(row => ({ name: fmtShort(row.date), Male: row.Male, Female: row.Female }))}
+            keys={["Male", "Female"]}
+            activeFilter={activeFilter}
+            onSelect={label => applyFilter({ source: "Admission Trend", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+          />
           <StackedBarCard
             title="Age Group with Gender Distribution"
             data={buildAgeGenderRows(sectionPatients, multiplier)}
@@ -477,12 +572,24 @@ export function Clinical({
   onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   const multiplier = filterRatio;
+  const kpis = ["carePlan", "doorThromb", "doorBalloon", "investigationTat"].map(id => METRICS.find(m => m.id === id)!);
+  const mewsTrend = buildMewsTrend(days, multiplier);
   const sectionPatients = filterPatients(patients, activeFilter);
 
   return (
     <div className="space-y-5">
+      <Section title="Clinical Recognition and Pathway Activation">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {kpis.slice(0, 3).map(metric => (
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+          ))}
+          <MewsCard data={mewsTrend} onClick={() => onDrill({ id: "mews", label: "MEWS", group: "clinical", kind: "score", baseline: 0, target: "Risk trajectory", tone: "amber", Icon: HeartPulse, fmt: v => v.toFixed(1) })} />
+          <MetricCard metric={kpis[3]} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+        </div>
+      </Section>
+
       <Section title="Care Pathways and Daily Case Mix">
-        <div className="grid grid-cols-1 items-stretch gap-4">
+        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
           <ChartCard
             title="ER Cases by Care Pathway"
             active={Boolean(activeFilter)}
@@ -500,6 +607,16 @@ export function Clinical({
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+          <LineAnalyticsCard
+            title="ER Cases by Day"
+            data={buildDailyCases(days, multiplier).map(row => ({ name: fmtShort(row.date), Cases: row.cases }))}
+            keys={["Cases"]}
+            activeFilter={activeFilter}
+            onSelect={label => applyFilter({ source: "Daily ER Cases", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+            suggested
+          />
         </div>
       </Section>
 
@@ -521,6 +638,103 @@ export function Clinical({
             patients={sectionPatients}
             onViewPatients={onViewPatients}
           />
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+export function Quality({
+  patients,
+  filterRatio,
+  days,
+  activeFilter,
+  applyFilter,
+  onDrill,
+  onViewPatients,
+}: {
+  patients: typeof roster;
+  filterRatio: number;
+  days: string[];
+  activeFilter: DashboardFilter | null;
+  applyFilter: (filter: DashboardFilter) => void;
+  onDrill: (metric: Metric) => void;
+  onViewPatients: (title: string, patients: typeof roster) => void;
+}) {
+  const [referralView, setReferralView] = useState<ReferralView>("reason");
+  const [lamaView, setLamaView] = useState<LamaView>("reason");
+  const multiplier = filterRatio;
+  const sectionPatients = filterPatients(patients, activeFilter);
+  const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"].map(id => METRICS.find(m => m.id === id)!);
+  const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"].map(id => METRICS.find(m => m.id === id)!);
+  const referralRows = buildReferralRows(referralView, multiplier);
+  const lamaRows = lamaView === "reason" ? scaleNamedRows(lamaReasonBase, multiplier) : scaleNamedRows(lamaPinBase, multiplier);
+
+  return (
+    <div className="space-y-5">
+      <Section title="Safety Outcomes">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {outcome.map(metric => (
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Experience, Readiness, and Bed Turnover">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {experience.map(metric => (
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Referrals and LAMA">
+        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+          <ChartCard
+            title="Outward Referral Analysis"
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="Outward Referral Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={referralView} options={["hour", "weekday", "month", "reason"]} onChange={setReferralView} />
+              </div>
+            }
+            active={Boolean(activeFilter)}
+          >
+            <ResponsiveContainer width="100%" height={245}>
+              <BarChart data={referralRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "Outward Referral", applyFilter)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
+                <YAxis tick={axisTick} label={axisLabel("Cases")} />
+                <Tooltip cursor={false} contentStyle={tooltipStyle} />
+                <Bar dataKey="value" fill={COLORS.navy} radius={BAR_RADIUS}>
+                  <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="LAMA Analysis"
+            action={
+              <div className="flex items-center gap-2">
+                <PatientListLink title="LAMA Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
+                <Segmented value={lamaView} options={["reason", "pincode"]} onChange={setLamaView} />
+              </div>
+            }
+            active={Boolean(activeFilter)}
+          >
+            <ResponsiveContainer width="100%" height={245}>
+              <BarChart data={lamaRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "LAMA", applyFilter)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
+                <YAxis tick={axisTick} label={axisLabel("Cases")} />
+                <Tooltip cursor={false} contentStyle={tooltipStyle} />
+                <Bar dataKey="value" fill={COLORS.coral} radius={BAR_RADIUS}>
+                  <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
         </div>
       </Section>
     </div>
@@ -763,6 +977,7 @@ function StackedBarCard({
   xKey,
   keys,
   activeFilter,
+  suggested,
   onSelect,
   patients,
   onViewPatients,
@@ -772,6 +987,7 @@ function StackedBarCard({
   xKey: string;
   keys: string[];
   activeFilter: DashboardFilter | null;
+  suggested?: boolean;
   onSelect: (label: string, payload?: Record<string, string | number>) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
@@ -780,6 +996,7 @@ function StackedBarCard({
     <ChartCard
       title={title}
       active={Boolean(activeFilter)}
+      suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
     >
       <ResponsiveContainer width="100%" height={300}>
@@ -805,6 +1022,7 @@ function LineAnalyticsCard({
   data,
   keys,
   activeFilter,
+  suggested,
   onSelect,
   patients,
   onViewPatients,
@@ -813,6 +1031,7 @@ function LineAnalyticsCard({
   data: Record<string, string | number>[];
   keys: string[];
   activeFilter: DashboardFilter | null;
+  suggested?: boolean;
   onSelect: (label: string) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
@@ -821,6 +1040,7 @@ function LineAnalyticsCard({
     <ChartCard
       title={title}
       active={Boolean(activeFilter)}
+      suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
     >
       <ResponsiveContainer width="100%" height={300}>
