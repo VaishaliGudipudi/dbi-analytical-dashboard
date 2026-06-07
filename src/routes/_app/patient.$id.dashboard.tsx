@@ -26,16 +26,21 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { NursingAssessmentModal } from "@/components/app/NursingAssessmentModal";
 import { useAuth } from "@/lib/auth";
 import { buildPatientOverview, defaultOverviewTabFor } from "@/lib/careOverview";
-import { getEdSnapshot } from "@/lib/edApi";
+import { getEdSnapshot, getPatientWorkspaceDraft } from "@/lib/edApi";
 import { triageMeta } from "@/lib/edTypes";
 
 export const Route = createFileRoute("/_app/patient/$id/dashboard")({
   loader: async ({ params }) => {
-    const snapshot = await getEdSnapshot();
+    const [snapshot, workspaceDraft] = await Promise.all([
+      getEdSnapshot(),
+      getPatientWorkspaceDraft({ data: { patientId: params.id } }),
+    ]);
     return {
       patient: snapshot.patients.find((item) => item.id === params.id) ?? snapshot.patients[0],
+      workspaceDraft,
     };
   },
   component: PatientDashboardPage,
@@ -50,10 +55,11 @@ const tabMeta: Record<DashboardTab, { label: string; note: string }> = {
 };
 
 function PatientDashboardPage() {
-  const { patient } = Route.useLoaderData();
+  const { patient, workspaceDraft } = Route.useLoaderData();
   const { user } = useAuth();
   const overview = useMemo(() => buildPatientOverview(patient), [patient]);
   const [tab, setTab] = useState<DashboardTab>(defaultOverviewTabFor(user?.role ?? "doctor"));
+  const [showNursingAssessment, setShowNursingAssessment] = useState(false);
 
   const latestVitals = overview.vitalsTimeline[overview.vitalsTimeline.length - 1];
   const statusMix = [
@@ -96,6 +102,13 @@ function PatientDashboardPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNursingAssessment(true)}
+              className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold transition hover:bg-white/20"
+            >
+              Nursing Assessment
+            </button>
             <Link to="/patient/$id/workspace" params={{ id: overview.patient.id }} className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold transition hover:bg-white/20">
               Open Workspace
             </Link>
@@ -155,6 +168,17 @@ function PatientDashboardPage() {
       {tab === "doctor" ? <DoctorView overview={overview} statusMix={statusMix} /> : null}
       {tab === "nurse" ? <NurseView overview={overview} /> : null}
       {tab === "patient" ? <PatientView overview={overview} /> : null}
+      {showNursingAssessment ? (
+        <NursingAssessmentModal
+          assessments={workspaceDraft.nursingAssessments ?? []}
+          patientName={overview.patient.name}
+          umr={overview.patient.umr}
+          assignedDoctorName={overview.careTeam.doctor}
+          canEdit={false}
+          currentUserName={user?.name}
+          onClose={() => setShowNursingAssessment(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -19,11 +19,13 @@ import {
 } from "lucide-react";
 import { AddOrdersModal } from "@/components/app/AddOrdersModal";
 import { AddVitalsModal } from "@/components/app/AddVitalsModal";
+import { NursingAssessmentModal } from "@/components/app/NursingAssessmentModal";
 import { ScoringToolsModal } from "@/components/app/ScoringToolsModal";
 import { useCopilot } from "@/copilot/hooks/useCopilot";
 import type { CopilotRecommendation, EncounterOrderItem } from "@/copilot/types/copilot";
 import { getEdSnapshot, getPatientWorkspaceDraft, savePatientWorkspaceDraft } from "@/lib/edApi";
-import type { OutcomeDraft, PatientWorkspaceDraft } from "@/lib/edTypes";
+import { useAuth } from "@/lib/auth";
+import type { NursingAssessmentRecord, OutcomeDraft, PatientWorkspaceDraft } from "@/lib/edTypes";
 import { triageMeta } from "@/lib/edTypes";
 
 export const Route = createFileRoute("/_app/patient/$id/workspace")({
@@ -268,6 +270,7 @@ function emptyOutcomeDraft(): OutcomeDraft {
 function Workspace() {
   const { patient, patients, workspaceDraft } = Route.useLoaderData();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { recommendations, requestRecommendations, setEncounterBindings, startVoiceCapture } = useCopilot();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const workspaceFormRef = useRef<HTMLElement | null>(null);
@@ -288,6 +291,7 @@ function Workspace() {
   const [showVitals, setShowVitals] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
   const [showPathwayPanel, setShowPathwayPanel] = useState(false);
+  const [showNursingAssessment, setShowNursingAssessment] = useState(false);
   const [activeHeaderPanel, setActiveHeaderPanel] = useState<"vitals" | "alerts" | "timers" | "ai" | "orders" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [rapidMode, setRapidMode] = useState(false);
@@ -301,6 +305,7 @@ function Workspace() {
             { category: "medication", name: "Paracetamol", requirement: "PRN", notes: "Symptomatic care if febrile/pain" },
           ],
   );
+  const [nursingAssessments, setNursingAssessments] = useState<NursingAssessmentRecord[]>(() => workspaceDraft.nursingAssessments ?? []);
   const [vitals, setVitals] = useState(() => ({
     sbp: workspaceDraft.vitals?.sbp ?? "",
     dbp: workspaceDraft.vitals?.dbp ?? "",
@@ -315,6 +320,7 @@ function Workspace() {
     ...emptyOutcomeDraft(),
     ...(workspaceDraft.outcome ?? {}),
   }));
+  const isNurseWorkspace = user?.role === "nurse";
 
   const autoPathway = useMemo(() => {
     const cc = chiefComplaint.toLowerCase();
@@ -351,6 +357,7 @@ function Workspace() {
       temp: workspaceDraft.vitals?.temp ?? "",
       grbs: workspaceDraft.vitals?.grbs ?? "",
     });
+    setNursingAssessments(workspaceDraft.nursingAssessments ?? []);
     setPathwayOverride(workspaceDraft.pathwayOverride ?? null);
     setOutcomeDraft({
       ...emptyOutcomeDraft(),
@@ -411,6 +418,7 @@ function Workspace() {
               chiefComplaint,
               vitals,
               orderedItems,
+              nursingAssessments,
               pathwayOverride,
               outcome: outcomeDraft,
               formValues: collectPersistedFormValues(workspaceFormRef.current),
@@ -432,7 +440,7 @@ function Workspace() {
         window.clearTimeout(saveTimerRef.current);
       }
     };
-  }, [chiefComplaint, orderedItems, outcomeDraft, pathwayOverride, patient.id, vitals]);
+  }, [chiefComplaint, nursingAssessments, orderedItems, outcomeDraft, pathwayOverride, patient.id, vitals]);
 
   const goNext = () => {
     setDone({ ...done, [step]: true });
@@ -527,7 +535,7 @@ function Workspace() {
         if (normalized.includes("scoring")) setShowScoring(true);
         if (normalized.includes("vitals")) setShowVitals(true);
         if (normalized.includes("order")) setShowOrders(true);
-        if (normalized.includes("nurse")) setNotice("Nurse Assessment placeholder: handoff checklist and nursing assessment will open here.");
+        if (normalized.includes("nurse")) setShowNursingAssessment(true);
         if (normalized.includes("voice")) void startVoiceCapture(STEPS.find((item) => item.id === step)?.label ?? "active section");
       },
       applyVitals: (nextVitals) => {
@@ -598,34 +606,38 @@ function Workspace() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <ToolBtn onClick={() => setShowPathwayPanel((value) => !value)} icon={<ChevronDown className={`h-4 w-4 transition-transform ${showPathwayPanel ? "rotate-180" : ""}`} />}>
-              Care Pathway
-            </ToolBtn>
-            <ToolBtn onClick={() => setShowScoring(true)} icon={<Calculator className="h-4 w-4" />}>
-              Scoring Tools
-            </ToolBtn>
-            <ToolBtn onClick={() => setNotice("Nurse Assessment placeholder: handoff checklist and nursing assessment will open here.")} icon={<ClipboardList className="h-4 w-4" />}>
-              Nurse Assessment
-            </ToolBtn>
-            <ToolBtn onClick={() => void startVoiceCapture(STEPS.find((item) => item.id === step)?.label ?? "active section")} icon={<Activity className="h-4 w-4" />}>
-              Voice Fill
-            </ToolBtn>
-            <ToolBtn onClick={() => fileInputRef.current?.click()} icon={<FileText className="h-4 w-4" />}>
-              Scan Photo
-            </ToolBtn>
-            <input
-              ref={(el) => (fileInputRef.current = el)}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) console.log("workspace upload", file.name);
-              }}
-            />
+            {isNurseWorkspace ? null : (
+              <>
+                <ToolBtn onClick={() => setShowPathwayPanel((value) => !value)} icon={<ChevronDown className={`h-4 w-4 transition-transform ${showPathwayPanel ? "rotate-180" : ""}`} />}>
+                  Care Pathway
+                </ToolBtn>
+                <ToolBtn onClick={() => setShowScoring(true)} icon={<Calculator className="h-4 w-4" />}>
+                  Scoring Tools
+                </ToolBtn>
+                <ToolBtn onClick={() => setShowNursingAssessment(true)} icon={<ClipboardList className="h-4 w-4" />}>
+                  Nurse Assessment
+                </ToolBtn>
+                <ToolBtn onClick={() => void startVoiceCapture(STEPS.find((item) => item.id === step)?.label ?? "active section")} icon={<Activity className="h-4 w-4" />}>
+                  Voice Fill
+                </ToolBtn>
+                <ToolBtn onClick={() => fileInputRef.current?.click()} icon={<FileText className="h-4 w-4" />}>
+                  Scan Photo
+                </ToolBtn>
+                <input
+                  ref={(el) => (fileInputRef.current = el)}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) console.log("workspace upload", file.name);
+                  }}
+                />
+              </>
+            )}
           </div>
         </div>
-        {showPathwayPanel ? (
+        {showPathwayPanel && !isNurseWorkspace ? (
           <div className="mt-3 rounded-[1.5rem] border border-white/10 bg-white/8 p-3 backdrop-blur-sm">
             <div className="mb-2 flex items-center justify-between gap-3 px-1">
               <div>
@@ -650,93 +662,119 @@ function Workspace() {
       </div>
 
       <div className="mt-4 flex-1 overflow-y-auto pr-1">
-        <main ref={workspaceFormRef} className="space-y-4 pb-5">
-          <div className={`${shellCard} flex items-center gap-2 p-2`}>
-            <button
-              type="button"
-              onClick={() => setRapidMode(false)}
-              className={`flex-1 rounded-2xl px-4 py-3 text-center text-sm font-bold ${rapidMode ? "text-muted-foreground" : "bg-navy text-white shadow-soft"}`}
-            >
-              STANDARD MODE
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRapidMode(true);
-                navigate({ to: "/rapid" });
-              }}
-              className={`flex-1 rounded-2xl px-4 py-3 text-center text-sm font-bold ${rapidMode ? "bg-coral text-white shadow-soft" : "text-muted-foreground"}`}
-            >
-              RAPID EMERGENCY MODE
-            </button>
-          </div>
-
-          <Collapsible title="1. ER Arrival" open={step === "arrival"} onToggle={() => setStep("arrival")}>
-            <ArrivalForm />
-          </Collapsible>
-          <Collapsible title="2. Triage Details" open={step === "triage"} onToggle={() => setStep("triage")}>
-            <TriageForm vitals={vitals} setVitals={setVitals} />
-          </Collapsible>
-          <Collapsible title="3. Medication History" open={step === "medhist"} onToggle={() => setStep("medhist")}>
-            <MedHistoryForm />
-          </Collapsible>
-          <Collapsible title="4. Clinical Assessment" open={step === "clinical"} onToggle={() => setStep("clinical")}>
-            <ClinicalForm
-              chiefComplaint={chiefComplaint}
-              setChiefComplaint={setChiefComplaint}
-              pathway={pathway}
-              autoPathway={autoPathway}
-              setPathwayOverride={setPathwayOverride}
-              isOverride={isOverride}
-            />
-          </Collapsible>
-          <Collapsible
-            title={`5. ${pathway === "Generic" ? "Generic Medication Order Set" : `${pathway} Order Set`}`}
-            open={step === "orders"}
-            onToggle={() => setStep("orders")}
-          >
-            <MedicationOrderSet pathway={pathway} onOrder={(item) => setOrderedItems((current) => [...current, item])} />
-          </Collapsible>
-          <Collapsible title="6. ER Outcome" open={step === "outcome"} onToggle={() => setStep("outcome")}>
-            <EROutcomeFlow
+        {isNurseWorkspace ? (
+          <main className="space-y-4 pb-5">
+            <div className={`${shellCard} p-4`}>
+              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-coral">Nurse Workspace</div>
+              <div className="mt-1 text-lg font-bold text-navy">Nursing Assessment</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Nurses record bedside assessment here. Doctors can review the saved entries from the `Nursing Assessment` button in patient views.
+              </div>
+            </div>
+            <NursingAssessmentModal
+              assessments={nursingAssessments}
               patientName={patient.name}
-              pathway={pathway}
-              orderedItems={orderedItems}
-              chiefComplaint={chiefComplaint}
-              outcomeDraft={outcomeDraft}
-              onOutcomeDraftChange={setOutcomeDraft}
+              umr={patient.umr}
+              assignedDoctorName={patient.physician}
+              canEdit
+              embedded
+              currentUserName={user?.name}
+              onClose={() => undefined}
+              onSave={(record) => {
+                setNursingAssessments((current) => [record, ...current]);
+                setNotice("Nursing assessment saved and added to the patient track.");
+              }}
             />
-          </Collapsible>
+          </main>
+        ) : (
+          <main ref={workspaceFormRef} className="space-y-4 pb-5">
+            <div className={`${shellCard} flex items-center gap-2 p-2`}>
+              <button
+                type="button"
+                onClick={() => setRapidMode(false)}
+                className={`flex-1 rounded-2xl px-4 py-3 text-center text-sm font-bold ${rapidMode ? "text-muted-foreground" : "bg-navy text-white shadow-soft"}`}
+              >
+                STANDARD MODE
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRapidMode(true);
+                  navigate({ to: "/rapid" });
+                }}
+                className={`flex-1 rounded-2xl px-4 py-3 text-center text-sm font-bold ${rapidMode ? "bg-coral text-white shadow-soft" : "text-muted-foreground"}`}
+              >
+                RAPID EMERGENCY MODE
+              </button>
+            </div>
 
-          <div className={`${shellCard} sticky bottom-4 flex flex-wrap items-center justify-between gap-3 px-5 py-4`}>
-            <button
-              type="button"
-              onClick={() => setShowConsent(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-white/75 px-4 py-2 text-sm font-medium text-navy hover:bg-white"
+            <Collapsible title="1. ER Arrival" open={step === "arrival"} onToggle={() => setStep("arrival")}>
+              <ArrivalForm />
+            </Collapsible>
+            <Collapsible title="2. Triage Details" open={step === "triage"} onToggle={() => setStep("triage")}>
+              <TriageForm vitals={vitals} setVitals={setVitals} />
+            </Collapsible>
+            <Collapsible title="3. Medication History" open={step === "medhist"} onToggle={() => setStep("medhist")}>
+              <MedHistoryForm />
+            </Collapsible>
+            <Collapsible title="4. Clinical Assessment" open={step === "clinical"} onToggle={() => setStep("clinical")}>
+              <ClinicalForm
+                chiefComplaint={chiefComplaint}
+                setChiefComplaint={setChiefComplaint}
+                pathway={pathway}
+                autoPathway={autoPathway}
+                setPathwayOverride={setPathwayOverride}
+                isOverride={isOverride}
+              />
+            </Collapsible>
+            <Collapsible
+              title={`5. ${pathway === "Generic" ? "Generic Medication Order Set" : `${pathway} Order Set`}`}
+              open={step === "orders"}
+              onToggle={() => setStep("orders")}
             >
-              <Printer className="h-4 w-4" />
-              Print Consent
-            </button>
-            <button
-              onClick={goNext}
-              className="inline-flex items-center gap-2 rounded-full bg-navy px-5 py-3 text-sm font-semibold text-white shadow-soft hover:opacity-95"
-            >
-              {step === "clinical" ? (
-                <>
-                  <Send className="h-4 w-4" />
-                  Submit
-                </>
-              ) : (
-                "Next Step"
-              )}
-            </button>
-          </div>
-        </main>
+              <MedicationOrderSet pathway={pathway} onOrder={(item) => setOrderedItems((current) => [...current, item])} />
+            </Collapsible>
+            <Collapsible title="6. ER Outcome" open={step === "outcome"} onToggle={() => setStep("outcome")}>
+              <EROutcomeFlow
+                patientName={patient.name}
+                pathway={pathway}
+                orderedItems={orderedItems}
+                chiefComplaint={chiefComplaint}
+                outcomeDraft={outcomeDraft}
+                onOutcomeDraftChange={setOutcomeDraft}
+              />
+            </Collapsible>
+
+            <div className={`${shellCard} sticky bottom-4 flex flex-wrap items-center justify-between gap-3 px-5 py-4`}>
+              <button
+                type="button"
+                onClick={() => setShowConsent(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/75 px-4 py-2 text-sm font-medium text-navy hover:bg-white"
+              >
+                <Printer className="h-4 w-4" />
+                Print Consent
+              </button>
+              <button
+                onClick={goNext}
+                className="inline-flex items-center gap-2 rounded-full bg-navy px-5 py-3 text-sm font-semibold text-white shadow-soft hover:opacity-95"
+              >
+                {step === "clinical" ? (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Submit
+                  </>
+                ) : (
+                  "Next Step"
+                )}
+              </button>
+            </div>
+          </main>
+        )}
       </div>
 
-      {showOrders && <AddOrdersModal pathway={pathway} onClose={() => setShowOrders(false)} />}
-      {showScoring && <ScoringToolsModal pathway={pathway} onClose={() => setShowScoring(false)} />}
-        {showVitals && (
+      {!isNurseWorkspace && showOrders && <AddOrdersModal pathway={pathway} onClose={() => setShowOrders(false)} />}
+      {!isNurseWorkspace && showScoring && <ScoringToolsModal pathway={pathway} onClose={() => setShowScoring(false)} />}
+      {!isNurseWorkspace && showVitals && (
           <AddVitalsModal
             initialValues={vitals}
             onSave={(nextVitals) => {
@@ -747,8 +785,23 @@ function Workspace() {
             }}
             onClose={() => setShowVitals(false)}
           />
-        )}
-      {showConsent && <ConsentModal patientName={patient.name} umr={patient.umr} pathway={pathway} onClose={() => setShowConsent(false)} />}
+      )}
+      {!isNurseWorkspace && showConsent && <ConsentModal patientName={patient.name} umr={patient.umr} pathway={pathway} onClose={() => setShowConsent(false)} />}
+      {!isNurseWorkspace && showNursingAssessment ? (
+        <NursingAssessmentModal
+          assessments={nursingAssessments}
+          patientName={patient.name}
+          umr={patient.umr}
+          assignedDoctorName={patient.physician}
+          canEdit={user?.role === "nurse" || user?.role === "admin"}
+          currentUserName={user?.name}
+          onClose={() => setShowNursingAssessment(false)}
+          onSave={(record) => {
+            setNursingAssessments((current) => [record, ...current]);
+            setNotice("Nursing assessment saved and added to the patient track.");
+          }}
+        />
+      ) : null}
       {notice && <NoticeModal message={notice} onClose={() => setNotice(null)} />}
     </div>
   );

@@ -100,6 +100,36 @@ const COLORS = {
 };
 
 const BAR_RADIUS: [number, number, number, number] = [10, 10, 0, 0];
+const HORIZONTAL_BAR_RADIUS: [number, number, number, number] = [0, 10, 10, 0];
+const ENTITY_COLORS = {
+  Male: COLORS.navy,
+  Female: COLORS.coral,
+  Other: COLORS.amber,
+  Discharged: COLORS.green,
+  Admitted: COLORS.navy,
+  Admission: COLORS.navy,
+  Observation: COLORS.amber,
+  "ED Active": COLORS.blue,
+  Referred: COLORS.coral,
+  "Referred Out": COLORS.coral,
+  LAMA: COLORS.amber,
+  Expired: COLORS.red,
+  Ambulance: COLORS.blue,
+  "Walk In": COLORS.green,
+  Infusions: COLORS.green,
+  Investigations: COLORS.blue,
+  Medications: COLORS.coral,
+  Procedures: COLORS.amber,
+  Registration: COLORS.green,
+  Triage: COLORS.amber,
+  Consult: COLORS.coral,
+  Disposition: COLORS.navy,
+  Cases: COLORS.navy,
+  Total: COLORS.navy,
+  Value: COLORS.coral,
+  AdmissionMEWS: COLORS.navy,
+  DischargeMEWS: COLORS.green,
+} as const;
 
 const METRICS: Metric[] = [
   { id: "iaTat", label: "Initial Assessment TAT", group: "operational", kind: "duration", baseline: 7.4, target: "<= 10 min", unit: "min", tone: "green", Icon: Clock, fmt: v => `${v.toFixed(1)} min` },
@@ -132,11 +162,11 @@ const triageDist = [
 ];
 
 const dispositionDist = [
-  { name: "Discharged", value: 64, color: COLORS.green },
-  { name: "Admitted", value: 38, color: COLORS.navy },
-  { name: "Referred Out", value: 12, color: COLORS.coral },
-  { name: "LAMA", value: 6, color: COLORS.amber },
-  { name: "Expired", value: 2, color: COLORS.red },
+  { name: "Discharged", value: 64, color: getEntityColor("Discharged", COLORS.green) },
+  { name: "Admitted", value: 38, color: getEntityColor("Admitted", COLORS.navy) },
+  { name: "Referred Out", value: 12, color: getEntityColor("Referred Out", COLORS.coral) },
+  { name: "LAMA", value: 6, color: getEntityColor("LAMA", COLORS.amber) },
+  { name: "Expired", value: 2, color: getEntityColor("Expired", COLORS.red) },
 ];
 
 const triageVsDispoBase = [
@@ -203,8 +233,6 @@ const lamaPinBase = [
 ];
 
 const protocolSegmentKeys = ["Infusions", "Investigations", "Medications", "Procedures"] as const;
-const protocolSegmentColors = [COLORS.blue, COLORS.green, COLORS.coral, COLORS.amber];
-
 function Analytics() {
   const { patients } = Route.useLoaderData();
   const { setAnalyticsBindings } = useCopilot();
@@ -249,7 +277,6 @@ function Analytics() {
           {[
             { id: "operational" as const, label: "Operational" },
             { id: "clinical" as const, label: "Clinical" },
-            { id: "quality" as const, label: "Quality & Safety" },
           ].map(item => (
             <button
               key={item.id}
@@ -287,18 +314,6 @@ function Analytics() {
           onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
         />
       )}
-      {tab === "quality" && (
-        <Quality
-          patients={patients}
-          filterRatio={filterRatio}
-          days={days}
-          activeFilter={activeFilter}
-          applyFilter={applyFilter}
-          onDrill={setDrillMetric}
-          onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
-        />
-      )}
-
       {drillMetric && (
         <MetricDrillPanel patients={patients} filterRatio={filterRatio} metric={drillMetric} days={days} activeFilter={activeFilter} onClose={() => setDrillMetric(null)} />
       )}
@@ -330,28 +345,15 @@ export function Operational({
   onDrill: (metric: Metric) => void;
   onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
-  const [footfallView, setFootfallView] = useState<FootfallView>("hour");
   const [protocolView, setProtocolView] = useState<ProtocolView>("day");
   const multiplier = filterRatio;
   const existingMetricIds = ["iaTat", "erTat", "bedOcc", "ppd", "mlcCases"];
-  const suggestedMetricIds = ["avgLos", "dispositionTat", "ppn"];
   const existingMetrics = existingMetricIds.map(id => METRICS.find(m => m.id === id)!);
-  const suggestedMetrics = suggestedMetricIds.map(id => METRICS.find(m => m.id === id)!);
-  const footfall = buildFootfall(days, multiplier);
-  const footfallRollup = rollupFootfall(footfallView, footfall);
-  const highestFootfall = Math.max(...footfallRollup.map(row => row.patients));
   const sectionPatients = filterPatients(patients, activeFilter);
   const triageDist = buildTriagePieRows(sectionPatients);
   const disposition = buildDispositionPieRows(sectionPatients);
   const triageVsDispo = buildTriageDispositionRows(sectionPatients);
   const protocolRows = buildProtocolStackRows(protocolView, multiplier);
-  const stageData = [
-    { name: "Registration", value: scale(11, multiplier), color: COLORS.green },
-    { name: "Triage", value: scale(16, multiplier), color: COLORS.amber },
-    { name: "Consult", value: scale(42, multiplier), color: COLORS.coral },
-    { name: "Investigations", value: scale(67, multiplier), color: COLORS.blue },
-    { name: "Disposition", value: scale(34, multiplier), color: COLORS.navy },
-  ];
 
   return (
     <div className="space-y-5">
@@ -397,76 +399,8 @@ export function Operational({
         </div>
       </Section>
 
-      <Section title="Footfall">
-        <div className="grid grid-cols-1 items-stretch gap-4">
-          <ChartCard
-            title="Footfall"
-            action={
-              <div className="flex items-center gap-2">
-                <PatientListLink title="Footfall" patients={sectionPatients} onViewPatients={onViewPatients} />
-                <Segmented value={footfallView} options={["hour", "shift", "day", "month", "year"]} onChange={setFootfallView} />
-              </div>
-            }
-            active={Boolean(activeFilter)}
-          >
-            <ResponsiveContainer width="100%" height={285}>
-              <BarChart data={footfallRollup} margin={{ top: 20, right: 18, left: 8, bottom: 36 }} onClick={event => selectFromChart(event, "Footfall", applyFilter)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={52} />
-                <YAxis tick={axisTick} label={axisLabel("Patients")} />
-                <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="patients" radius={BAR_RADIUS}>
-                  {footfallRollup.map(row => (
-                    <Cell key={row.name} fill={row.patients === highestFootfall ? COLORS.coral : COLORS.navy} />
-                  ))}
-                  <LabelList dataKey="patients" position="top" fill={COLORS.navy} fontSize={11} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-      </Section>
-
-      <Section title="Arrival and Stage Time">
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          {suggestedMetrics.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-          <StackedBarCard
-            title="Ambulance vs Walk In"
-            data={footfall.slice(-10).map(row => ({ name: fmtShort(row.date), Ambulance: row.ambulance, "Walk In": row.walkIn }))}
-            xKey="name"
-            keys={["Ambulance", "Walk In"]}
-            activeFilter={activeFilter}
-            onSelect={label => applyFilter({ source: "Arrival Mode", label })}
-            patients={sectionPatients}
-            onViewPatients={onViewPatients}
-          />
-          <DonutCard
-            title="Time Taken Breakdown by Stage"
-            data={stageData}
-            activeFilter={activeFilter}
-            suggested
-            onSelect={label => applyFilter({ source: "Stage Delay", label })}
-            patients={sectionPatients}
-            onViewPatients={onViewPatients}
-          />
-        </div>
-      </Section>
-
       <Section title="Patient Demographics">
-        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-          <LineAnalyticsCard
-            title="Male vs Female Admission Trends"
-            data={footfall.map(row => ({ name: fmtShort(row.date), Male: row.Male, Female: row.Female }))}
-            keys={["Male", "Female"]}
-            activeFilter={activeFilter}
-            onSelect={label => applyFilter({ source: "Admission Trend", label })}
-            patients={sectionPatients}
-            onViewPatients={onViewPatients}
-          />
+        <div className="grid grid-cols-1 items-stretch gap-4">
           <StackedBarCard
             title="Age Group with Gender Distribution"
             data={buildAgeGenderRows(sectionPatients, multiplier)}
@@ -490,13 +424,13 @@ export function Operational({
             title="Protocol Set Ordered"
             action={
               <div className="flex items-center gap-2">
-                <PatientListLink title="Protocol Set Ordered" patients={sectionPatients} onViewPatients={onViewPatients} />
                 <Segmented value={protocolView} options={["day", "week", "month", "pathway"]} onChange={setProtocolView} />
+                <PatientListLink title="Protocol Set Ordered" patients={sectionPatients} onViewPatients={onViewPatients} />
               </div>
             }
             active={Boolean(activeFilter)}
           >
-            <ResponsiveContainer width="100%" height={285}>
+            <ResponsiveContainer width="100%" height={310}>
               <BarChart data={protocolRows} layout="vertical" margin={{ top: 12, right: 34, left: 86, bottom: 12 }} onClick={event => selectFromChart(event, "Protocol Orders", applyFilter)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" tick={axisTick} label={axisLabel("Orders", "insideBottom", 0)} />
@@ -504,7 +438,17 @@ export function Operational({
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
                 <RLegend content={<RawLegendContent />} />
                 {protocolSegmentKeys.map((key, index) => (
-                  <Bar key={key} dataKey={key} stackId="protocol" fill={protocolSegmentColors[index]} radius={index === protocolSegmentKeys.length - 1 ? [0, 8, 8, 0] : [0, 0, 0, 0]} />
+                  <Bar
+                    key={key}
+                    dataKey={key}
+                    stackId="protocol"
+                    fill={getEntityColor(key, getSeriesColor(key, index))}
+                    radius={index === protocolSegmentKeys.length - 1 ? HORIZONTAL_BAR_RADIUS : [0, 0, 0, 0]}
+                  >
+                    {index === protocolSegmentKeys.length - 1 ? (
+                      <LabelList content={renderHorizontalStackTotalLabel(protocolSegmentKeys)} />
+                    ) : null}
+                  </Bar>
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -533,24 +477,12 @@ export function Clinical({
   onViewPatients: (title: string, patients: typeof roster) => void;
 }) {
   const multiplier = filterRatio;
-  const kpis = ["carePlan", "doorThromb", "doorBalloon", "investigationTat"].map(id => METRICS.find(m => m.id === id)!);
-  const mewsTrend = buildMewsTrend(days, multiplier);
   const sectionPatients = filterPatients(patients, activeFilter);
 
   return (
     <div className="space-y-5">
-      <Section title="Clinical Recognition and Pathway Activation">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          {kpis.slice(0, 3).map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
-          ))}
-          <MewsCard data={mewsTrend} onClick={() => onDrill({ id: "mews", label: "MEWS", group: "clinical", kind: "score", baseline: 0, target: "Risk trajectory", tone: "amber", Icon: HeartPulse, fmt: v => v.toFixed(1) })} />
-          <MetricCard metric={kpis[3]} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
-        </div>
-      </Section>
-
       <Section title="Care Pathways and Daily Case Mix">
-        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+        <div className="grid grid-cols-1 items-stretch gap-4">
           <ChartCard
             title="ER Cases by Care Pathway"
             active={Boolean(activeFilter)}
@@ -568,15 +500,6 @@ export function Clinical({
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
-          <LineAnalyticsCard
-            title="ER Cases by Day"
-            data={buildDailyCases(days, multiplier).map(row => ({ name: fmtShort(row.date), Cases: row.cases }))}
-            keys={["Cases"]}
-            activeFilter={activeFilter}
-            onSelect={label => applyFilter({ source: "Daily ER Cases", label })}
-            patients={sectionPatients}
-            onViewPatients={onViewPatients}
-          />
         </div>
       </Section>
 
@@ -598,129 +521,6 @@ export function Clinical({
             patients={sectionPatients}
             onViewPatients={onViewPatients}
           />
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-export function Quality({
-  patients,
-  filterRatio,
-  days,
-  activeFilter,
-  applyFilter,
-  onDrill,
-  onViewPatients,
-}: {
-  patients: typeof roster;
-  filterRatio: number;
-  days: string[];
-  activeFilter: DashboardFilter | null;
-  applyFilter: (filter: DashboardFilter) => void;
-  onDrill: (metric: Metric) => void;
-  onViewPatients: (title: string, patients: typeof roster) => void;
-}) {
-  const [referralView, setReferralView] = useState<ReferralView>("reason");
-  const [lamaView, setLamaView] = useState<LamaView>("reason");
-  const [complaintView, setComplaintView] = useState<ComplaintView>("hour");
-  const multiplier = filterRatio;
-  const sectionPatients = filterPatients(patients, activeFilter);
-  const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"].map(id => METRICS.find(m => m.id === id)!);
-  const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"].map(id => METRICS.find(m => m.id === id)!);
-  const referralRows = buildReferralRows(referralView, multiplier);
-  const lamaRows = lamaView === "reason" ? scaleNamedRows(lamaReasonBase, multiplier) : scaleNamedRows(lamaPinBase, multiplier);
-  const complaintRows = buildComplaintRows(complaintView, multiplier);
-
-  return (
-    <div className="space-y-5">
-      <Section title="Safety Outcomes">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          {outcome.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Experience, Readiness, and Bed Turnover">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {experience.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Referrals, LAMA, and Complaints">
-        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-3">
-          <ChartCard
-            title="Outward Referral Analysis"
-            action={
-              <div className="flex items-center gap-2">
-                <PatientListLink title="Outward Referral Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
-                <Segmented value={referralView} options={["hour", "weekday", "month", "reason"]} onChange={setReferralView} />
-              </div>
-            }
-            active={Boolean(activeFilter)}
-          >
-            <ResponsiveContainer width="100%" height={245}>
-              <BarChart data={referralRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "Outward Referral", applyFilter)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
-                <YAxis tick={axisTick} label={axisLabel("Cases")} />
-                <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.navy} radius={BAR_RADIUS}>
-                  <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard
-            title="LAMA Analysis"
-            action={
-              <div className="flex items-center gap-2">
-                <PatientListLink title="LAMA Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
-                <Segmented value={lamaView} options={["reason", "pincode"]} onChange={setLamaView} />
-              </div>
-            }
-            active={Boolean(activeFilter)}
-          >
-            <ResponsiveContainer width="100%" height={245}>
-              <BarChart data={lamaRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "LAMA", applyFilter)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
-                <YAxis tick={axisTick} label={axisLabel("Cases")} />
-                <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.coral} radius={BAR_RADIUS}>
-                  <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard
-            title="Complaints Volume"
-            action={
-              <div className="flex items-center gap-2">
-                <PatientListLink title="Complaints Volume" patients={sectionPatients} onViewPatients={onViewPatients} />
-                <Segmented value={complaintView} options={["hour", "shift", "day"]} onChange={setComplaintView} />
-              </div>
-            }
-            active={Boolean(activeFilter)}
-            suggested
-          >
-            <ResponsiveContainer width="100%" height={245}>
-              <BarChart data={complaintRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "Complaints", applyFilter)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
-                <YAxis tick={axisTick} label={axisLabel("Complaints")} />
-                <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.amber} radius={BAR_RADIUS}>
-                  <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
         </div>
       </Section>
     </div>
@@ -871,11 +671,11 @@ function ChartCard({
 }) {
   return (
     <div
-      className={`flex h-full min-h-[320px] flex-col rounded-[1.5rem] bg-card p-4 shadow-soft transition-all ${
+      className={`flex h-full min-h-[348px] flex-col rounded-[1.5rem] bg-card p-4 shadow-soft transition-all ${
         suggested ? "border-2 border-dashed border-coral/70" : "border border-border/80"
       } ${active ? "ring-2 ring-coral/10" : ""}`}
     >
-      <div className="mb-3 flex min-h-8 flex-wrap items-center justify-between gap-2">
+      <div className="mb-2 flex min-h-8 flex-wrap items-start justify-between gap-2">
         <h3 className="text-sm font-bold text-navy">{title}</h3>
         {action}
       </div>
@@ -897,9 +697,9 @@ function PatientListLink({
     <button
       type="button"
       onClick={() => onViewPatients(title, patients)}
-      className="rounded-full border border-coral/30 bg-coral/10 px-2.5 py-1 text-[11px] font-semibold text-coral transition-colors hover:bg-coral hover:text-white"
+      className="shrink-0 rounded-full border border-coral/30 bg-coral/10 px-2 py-0.5 text-[10px] font-semibold text-coral transition-colors hover:bg-coral hover:text-white"
     >
-      Click for patients
+      Show data
     </button>
   );
 }
@@ -982,10 +782,10 @@ function StackedBarCard({
       active={Boolean(activeFilter)}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
     >
-      <ResponsiveContainer width="100%" height={265}>
+      <ResponsiveContainer width="100%" height={300}>
         <BarChart
           data={data}
-          margin={{ top: 18, right: 18, left: 8, bottom: 48 }}
+          margin={{ top: 24, right: 18, left: 8, bottom: 48 }}
           onClick={event => selectFromChart(event, title, (_, payload, seriesKey) => onSelect(seriesKey ?? String(payload?.name ?? payload?.[xKey] ?? title), payload))}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -993,7 +793,7 @@ function StackedBarCard({
           <YAxis tick={axisTick} label={axisLabel("Patients")} />
           <Tooltip cursor={false} contentStyle={tooltipStyle} />
           <RLegend content={<RawLegendContent />} />
-          {stackBars(keys)}
+          {stackBars(keys, data)}
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -1023,7 +823,7 @@ function LineAnalyticsCard({
       active={Boolean(activeFilter)}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
     >
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data} margin={{ top: 20, right: 28, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, title, (_, payload) => onSelect(String(payload?.name ?? title)))}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="name" interval="preserveStartEnd" angle={-16} textAnchor="end" tick={axisTick} height={58} />
@@ -1035,7 +835,7 @@ function LineAnalyticsCard({
               key={key}
               type="monotone"
               dataKey={key}
-              stroke={index === 0 ? COLORS.coral : COLORS.navy}
+              stroke={getSeriesColor(key, index)}
               strokeWidth={2.5}
               dot={{ r: 3, strokeWidth: 2, fill: "white" }}
               activeDot={{ r: 6, fill: COLORS.amber, stroke: "white", strokeWidth: 2 }}
@@ -1072,7 +872,7 @@ function DonutCard({
       suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
     >
-      <ResponsiveContainer width="100%" height={245}>
+      <ResponsiveContainer width="100%" height={255}>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" innerRadius={52} outerRadius={86} paddingAngle={4} label={({ value }) => `${value}m`} labelLine={false} onClick={(row: { name: string }) => onSelect(row.name)}>
             {data.map(item => <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={2} />)}
@@ -1306,8 +1106,8 @@ export function MetricDrillPanel({
             {metric.id === "mews" ? (
               <ChartContainer
                 config={{
-                  Admission: { label: "Admission MEWS", color: COLORS.coral },
-                  Discharge: { label: "Discharge MEWS", color: COLORS.green },
+                  Admission: { label: "Admission MEWS", color: getEntityColor("AdmissionMEWS", COLORS.navy) },
+                  Discharge: { label: "Discharge MEWS", color: getEntityColor("DischargeMEWS", COLORS.green) },
                 }}
                 className="h-[360px] w-full"
               >
@@ -1411,9 +1211,9 @@ export function MetricDrillPanel({
               </div>
               <ChartContainer
                 config={{
-                  "ED Active": { label: "ED Active", color: COLORS.coral },
-                  Observation: { label: "Observation", color: COLORS.amber },
-                  Discharged: { label: "Discharged", color: COLORS.green },
+                  "ED Active": { label: "ED Active", color: getEntityColor("ED Active", COLORS.blue) },
+                  Observation: { label: "Observation", color: getEntityColor("Observation", COLORS.amber) },
+                  Discharged: { label: "Discharged", color: getEntityColor("Discharged", COLORS.green) },
                 }}
                 className="h-[320px] w-full"
               >
@@ -1425,7 +1225,9 @@ export function MetricDrillPanel({
                   <ChartLegend content={<ChartLegendContent />} />
                   <Bar dataKey="ED Active" stackId="provider" fill="var(--color-ED Active)" radius={BAR_RADIUS} />
                   <Bar dataKey="Observation" stackId="provider" fill="var(--color-Observation)" radius={BAR_RADIUS} />
-                  <Bar dataKey="Discharged" stackId="provider" fill="var(--color-Discharged)" radius={BAR_RADIUS} />
+                  <Bar dataKey="Discharged" stackId="provider" fill="var(--color-Discharged)" radius={BAR_RADIUS}>
+                    <LabelList content={renderStackTotalLabel(["ED Active", "Observation", "Discharged"])} />
+                  </Bar>
                 </BarChart>
               </ChartContainer>
             </div>
@@ -1555,19 +1357,26 @@ function GraphPatientsPanel({
   );
 }
 
-function stackBars(keys: string[]) {
-  const fills = [COLORS.green, COLORS.navy, COLORS.coral, COLORS.amber, COLORS.red, COLORS.blue];
+function stackBars(keys: string[], data: Record<string, string | number>[]) {
   return keys.map((key, index) => (
-    <Bar key={key} dataKey={key} stackId="stack" fill={fills[index % fills.length]} radius={index === keys.length - 1 ? [8, 8, 0, 0] : [0, 0, 0, 0]} />
+    <Bar key={key} dataKey={key} stackId="stack" fill={getSeriesColor(key, index)}>
+      {data.map((row, rowIndex) => (
+        <Cell
+          key={`${key}-${rowIndex}`}
+          radius={isTopOfStack(keys, key, row) ? BAR_RADIUS : [0, 0, 0, 0]}
+        />
+      ))}
+      {index === keys.length - 1 ? <LabelList content={renderStackTotalLabel(keys)} /> : null}
+    </Bar>
   ));
 }
 
 function Legend({ items }: { items: { name: string; value: number; color: string }[] }) {
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-2 flex flex-wrap gap-1.5">
       {items.map(item => (
-        <button key={item.name} className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/35 px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:bg-secondary/60">
-          <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: item.color }} />
+        <button key={item.name} className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/35 px-2 py-0.5 text-[10px] font-semibold text-navy transition-colors hover:bg-secondary/60">
+          <span className="h-2 w-2 rounded-full" style={{ background: item.color }} />
           <span>{item.name}</span>
           <span className="font-bold tabular-nums text-navy">{item.value}</span>
         </button>
@@ -1584,15 +1393,89 @@ function RawLegendContent(props: ComponentProps<typeof RLegend>) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
+    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
       {payload.map(item => (
-        <div key={`${item.dataKey ?? item.value}`} className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/35 px-2.5 py-1 text-[11px] font-semibold text-navy">
-          <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: item.color ?? COLORS.navy }} />
+        <div key={`${item.dataKey ?? item.value}`} className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/35 px-2 py-0.5 text-[10px] font-semibold text-navy">
+          <span className="h-2 w-2 rounded-full" style={{ background: item.color ?? COLORS.navy }} />
           <span>{String(item.value ?? item.dataKey ?? "")}</span>
         </div>
       ))}
     </div>
   );
+}
+
+function getSeriesColor(key: string, index: number) {
+  const fills = [COLORS.green, COLORS.navy, COLORS.coral, COLORS.amber, COLORS.red, COLORS.blue];
+  return getEntityColor(key, fills[index % fills.length]);
+}
+
+function getEntityColor(key: string, fallback: string) {
+  if (key in ENTITY_COLORS) {
+    return ENTITY_COLORS[key as keyof typeof ENTITY_COLORS];
+  }
+
+  return fallback;
+}
+
+function isTopOfStack(keys: string[], currentKey: string, row: Record<string, string | number>) {
+  const currentIndex = keys.indexOf(currentKey);
+  if (currentIndex === -1 || Number(row[currentKey] ?? 0) <= 0) {
+    return false;
+  }
+
+  return keys.slice(currentIndex + 1).every((key) => Number(row[key] ?? 0) <= 0);
+}
+
+function renderStackTotalLabel(keys: string[]) {
+  return ({ x, y, width, payload }: { x?: number; y?: number; width?: number; payload?: Record<string, string | number> }) => {
+    if (typeof x !== "number" || typeof y !== "number" || typeof width !== "number" || !payload) {
+      return null;
+    }
+
+    const total = keys.reduce((sum, key) => sum + Number(payload[key] ?? 0), 0);
+    if (!total) {
+      return null;
+    }
+
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 8}
+        fill={COLORS.navy}
+        fontSize={11}
+        fontWeight={700}
+        textAnchor="middle"
+      >
+        {total}
+      </text>
+    );
+  };
+}
+
+function renderHorizontalStackTotalLabel(keys: readonly string[]) {
+  return ({ x, y, width, height, payload }: { x?: number; y?: number; width?: number; height?: number; payload?: Record<string, string | number> }) => {
+    if (typeof x !== "number" || typeof y !== "number" || typeof width !== "number" || typeof height !== "number" || !payload) {
+      return null;
+    }
+
+    const total = keys.reduce((sum, key) => sum + Number(payload[key] ?? 0), 0);
+    if (!total) {
+      return null;
+    }
+
+    return (
+      <text
+        x={x + width + 8}
+        y={y + height / 2}
+        fill={COLORS.navy}
+        fontSize={11}
+        fontWeight={700}
+        dominantBaseline="middle"
+      >
+        {total}
+      </text>
+    );
+  };
 }
 
 export function dateRangeDays(range: RangeId, custom: { from: string; to: string }) {

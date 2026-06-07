@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Activity, ChevronRight, ShieldCheck, Stethoscope, X } from "lucide-react";
+import { Activity, ChevronRight, Stethoscope, X } from "lucide-react";
 import { getEdSnapshot } from "@/lib/edApi";
 import type { Patient } from "@/lib/edTypes";
 import {
@@ -9,7 +9,6 @@ import {
   FilterPill,
   MetricDrillPanel,
   Operational,
-  Quality,
   dateRangeDays,
   type DashboardFilter,
   type Metric,
@@ -24,7 +23,7 @@ export const Route = createFileRoute("/_app/analytics-v2")({
   component: AnalyticsV2,
 });
 
-type GroupId = "operational" | "clinical" | "quality";
+type GroupId = "operational" | "clinical";
 
 function AnalyticsV2() {
   const { patients } = Route.useLoaderData();
@@ -177,17 +176,6 @@ function AnalyticsV2() {
                 />
               ) : null}
 
-              {activeGroup === "quality" ? (
-                <Quality
-                  patients={patients}
-                  filterRatio={filterRatio}
-                  days={days}
-                  activeFilter={activeFilter}
-                  applyFilter={applyFilter}
-                  onDrill={setDrillMetric}
-                  onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
-                />
-              ) : null}
             </div>
           </div>
         </div>
@@ -266,7 +254,6 @@ function AnalyticsV2() {
 function buildSummaries(patients: Patient[]) {
   const active = patients.filter((patient) => patient.status !== "discharged").length;
   const critical = patients.filter((patient) => patient.triage <= 2).length;
-  const observation = patients.filter((patient) => patient.status === "obs").length;
   const busiestPathway = Array.from(groupByCount(patients, (patient) => patient.pathway).entries()).sort((a, b) => b[1] - a[1])[0];
 
   return [
@@ -287,15 +274,6 @@ function buildSummaries(patients: Patient[]) {
       note: "triage I and II patients across current clinical load",
       chips: [`Top pathway ${busiestPathway?.[0] ?? "-"}`, `Critical ${critical}`, "Pathways + utilisation"],
       Icon: Stethoscope,
-    },
-    {
-      id: "quality" as const,
-      title: "Quality & Safety",
-      description: "Safety outcomes, patient experience, referrals, LAMA, and complaints.",
-      value: String(observation),
-      note: "patients under observation and quality-watch flow",
-      chips: [`Pending triage ${patients.filter((patient) => patient.triage === 0).length}`, `Observation ${observation}`, "Outcomes + complaints"],
-      Icon: ShieldCheck,
     },
   ];
 }

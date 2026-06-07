@@ -3,6 +3,7 @@ import path from "node:path";
 import type {
   Diagnosis,
   EdSnapshot,
+  NursingAssessmentRecord,
   OutcomeDraft,
   Patient,
   PatientWorkspaceDraft,
@@ -80,8 +81,17 @@ function createEmptyWorkspaceDraft(): PatientWorkspaceDraft {
       grbs: "",
     },
     orderedItems: [],
+    nursingAssessments: [],
     pathwayOverride: null,
     outcome: defaultOutcomeDraft(),
+  };
+}
+
+function cloneNursingAssessmentRecord(record: NursingAssessmentRecord): NursingAssessmentRecord {
+  return {
+    ...record,
+    statMedications: record.statMedications.map((item) => ({ ...item })),
+    intravenousFluids: record.intravenousFluids.map((item) => ({ ...item })),
   };
 }
 
@@ -92,6 +102,7 @@ function cloneWorkspaceDraft(draft?: Partial<PatientWorkspaceDraft> | null): Pat
     chiefComplaint: draft?.chiefComplaint ?? empty.chiefComplaint,
     vitals: { ...empty.vitals, ...(draft?.vitals ?? {}) },
     orderedItems: (draft?.orderedItems ?? empty.orderedItems).map((item) => ({ ...item })),
+    nursingAssessments: (draft?.nursingAssessments ?? empty.nursingAssessments).map((item) => cloneNursingAssessmentRecord(item)),
     pathwayOverride: draft?.pathwayOverride ?? empty.pathwayOverride,
     outcome: { ...empty.outcome, ...(draft?.outcome ?? {}) },
   };
@@ -212,6 +223,7 @@ export async function savePatientWorkspaceDraftToDb(
     formValues: { ...current.formValues, ...(draftPatch.formValues ?? {}) },
     vitals: { ...current.vitals, ...(draftPatch.vitals ?? {}) },
     orderedItems: draftPatch.orderedItems ?? current.orderedItems,
+    nursingAssessments: draftPatch.nursingAssessments ?? current.nursingAssessments,
     outcome: { ...current.outcome, ...(draftPatch.outcome ?? {}) },
   });
 

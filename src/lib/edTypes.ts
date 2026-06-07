@@ -37,6 +37,60 @@ export interface WorkspaceOrderItem {
   notes: string;
 }
 
+export interface NursingStatMedicationEntry {
+  id: string;
+  dateTime: string;
+  drugName: string;
+  dose: string;
+  route: string;
+  frequency: string;
+  counterSignByDoctor: string;
+  sign1By: string;
+  sign1Time: string;
+  sign2By: string;
+  sign2Time: string;
+}
+
+export interface NursingIvFluidEntry {
+  id: string;
+  fluidName: string;
+  serialNumber: string;
+  timeStarted: string;
+  timeStopped: string;
+  signWithName: string;
+}
+
+export interface NursingAssessmentRecord {
+  id: string;
+  createdAt: string;
+  createdBy: string;
+  dateTime: string;
+  vulnerablePatient: boolean;
+  restraints: boolean;
+  drugAllergy: boolean;
+  fallRisk: boolean;
+  bedSore: boolean;
+  dvt: boolean;
+  yesDetails: string;
+  mainComplaintsAndFindings: string;
+  pulseRate: string;
+  bloodPressure: string;
+  temperature: string;
+  respiratoryRate: string;
+  weightKg: string;
+  rbs: string;
+  oxygenSaturation: string;
+  painScore: string;
+  bedSoreGrade: string;
+  investigationSent: string;
+  statMedications: NursingStatMedicationEntry[];
+  intravenousFluids: NursingIvFluidEntry[];
+  nurseNotes: string;
+  nurseName: string;
+  nurseSignature: string;
+  signedAt: string;
+}
+
 export interface OutcomeDraft {
   shiftedTo: string;
   patientStatus: string;
@@ -51,6 +105,7 @@ export interface PatientWorkspaceDraft {
   chiefComplaint: string;
   vitals: Record<string, string>;
   orderedItems: WorkspaceOrderItem[];
+  nursingAssessments: NursingAssessmentRecord[];
   pathwayOverride: string | null;
   outcome: OutcomeDraft;
 }

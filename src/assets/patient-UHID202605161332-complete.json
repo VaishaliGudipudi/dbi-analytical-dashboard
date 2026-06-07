@@ -1,0 +1,1460 @@
+{
+  "patientDetails": {
+    "ID": 547,
+    "PatientID": "UHID202605161332",
+    "FirstName": "TestingOBSEndtoEnd",
+    "SurName": null,
+    "DOB": "1986-05-16T00:00:00.000Z",
+    "Age": 40,
+    "Gender": "Male",
+    "Address": null,
+    "Pincode": null,
+    "PhoneNumber": null,
+    "EmailAddress": null,
+    "EmergencyContactName": null,
+    "EmergencyContactPhone": null,
+    "InsuranceID": null,
+    "InsuranceName": null,
+    "PaymentMethod": "None",
+    "RegistrationStatus": "Pending",
+    "RegistrationDate": "2026-05-16T00:00:00.000Z",
+    "RegistrationTime": "21:27:10.919664",
+    "CreatedBy": "EMP0003",
+    "CreatedOn": "2026-05-16T21:27:10.919Z",
+    "UpdatedBy": null,
+    "UpdatedOn": "2026-05-16T21:27:10.919Z",
+    "HFRID": null,
+    "TriageModuleMasterID": null,
+    "City": null,
+    "State": null,
+    "Country": "India",
+    "MLCNumber": null,
+    "BloodGroup": null,
+    "UMR": "123",
+    "ABHAID": null,
+    "AgeYears": 40,
+    "AgeMonths": 0,
+    "ABHALinkingToken": null,
+    "ABHAVerifiedAt": null,
+    "ABHALinkedBy": null,
+    "ABHAProfileSnapshot": null,
+    "name": "TestingOBSEndtoEnd",
+    "time": "2026-05-16 21:30:00",
+    "PatientEncounterID": "ENC20260516911937",
+    "status": "Discharged",
+    "IsInObservation": true,
+    "ObservationBedNumber": "observation_bed_1"
+  },
+  "patientJSON": {
+    "encounterId": "ENC20260516911937",
+    "patientId": "UHID202605161332",
+    "hospitalId": "H001",
+    "createdAt": {
+      "_seconds": 1778947030,
+      "_nanoseconds": 0
+    },
+    "registrationDateTime": "2026-05-16T21:30",
+    "demographics": {
+      "firstName": "TestingOBSEndtoEnd",
+      "surName": null,
+      "gender": "Male",
+      "ageYears": 40,
+      "ageMonths": 0
+    },
+    "lastUpdatedBy": "Tejaswi",
+    "_skipAudit": true,
+    "TreatmentStartTime": "2026-05-16T21:35",
+    "sections": {
+      "patient-admission-triage": {
+        "clinical": {
+          "allergies": "f",
+          "history": "f",
+          "symptoms": [
+            {
+              "id": 411,
+              "description": "A high fever, potentially as high as 105°F raised to the composed with power cap",
+              "isCustom": false
+            }
+          ],
+          "chiefComplaint": {
+            "description": "A high fever, potentially as high as 105°F raised to the composed with power cap",
+            "id": "411"
+          }
+        },
+        "assessment": {
+          "painScore": "1",
+          "breathing": {},
+          "airway": {},
+          "disability": {
+            "status": "clear",
+            "gcsEye": "",
+            "gcsVerbal": "",
+            "gcsMotor": ""
+          },
+          "gcs": {
+            "eye": "",
+            "verbal": "",
+            "motor": ""
+          },
+          "circulation": {
+            "radialPulse": "not_assessed",
+            "heartSounds": "not_assessable",
+            "pelvisStability": "not_assessed"
+          },
+          "airwayBreathingCirculation": {
+            "airway": "patentprotected",
+            "breathing": "spontaneous",
+            "circulation": "adequate"
+          }
+        },
+        "disposition": {
+          "carePathway": {
+            "algorithm": "Pneumonia",
+            "isOverridden": true,
+            "provider": "Stroke",
+            "name": "Stroke",
+            "configKey": "Stroke",
+            "protocol": {
+              "title": "Stroke Protocol",
+              "pathwayName": "Stroke",
+              "protocolName": "Protocol Orderset",
+              "journeyStepId": "stroke-pathway"
+            },
+            "formConfig": {
+              "schemaKey": "stroke",
+              "sectionName": "stroke-carepathway",
+              "journeyStepId": "stroke-pathway",
+              "pathwayDisplayName": "Stroke"
+            },
+            "jsonSection": "stroke-carepathway",
+            "navigationRules": {
+              "field": "ecgFindings.ctScanFindings",
+              "routes": [
+                {
+                  "value": "ischemic-stroke",
+                  "protocolId": "ischemic-stroke-protocol"
+                },
+                {
+                  "value": "ic-bleed",
+                  "protocolId": "ic-bleed-protocol",
+                  "directRoute": "/ic-bleed-guidance"
+                }
+              ],
+              "fallback": {
+                "protocolId": "other-stroke"
+              }
+            },
+            "tabs": [
+              {
+                "id": "stroke-assessment",
+                "label": "CT Scan"
+              },
+              {
+                "id": "stroke-chief-complaint",
+                "label": "Chief Complaint"
+              },
+              {
+                "id": "patient-info",
+                "label": "Personal History"
+              },
+              {
+                "id": "stroke-examination",
+                "label": "Systemic Assessment"
+              },
+              {
+                "id": "stroke-neurological",
+                "label": "Neurological Assessment"
+              },
+              {
+                "id": "stroke-referral-diagnosis",
+                "label": "Referral & Diagnosis"
+              }
+            ],
+            "id": "stroke",
+            "title": "Stroke"
+          }
+        },
+        "meta": {
+          "initialTriageTime": "2026-05-16T21:30:43+05:30",
+          "lastUpdated": "2026-05-16T21:31:24+05:30",
+          "updatedBy": "unknown",
+          "isSubmitted": true
+        },
+        "patient": {
+          "triagedAt": "2026-05-16T21:31:24+05:30",
+          "arrival": {
+            "mode": "Private Vehicle/Walk In",
+            "informedBy": "Self",
+            "inwardReferral": "Not Applicable",
+            "inwardReferralOther": "",
+            "referringDoctor": "",
+            "lengthOfStayPreviousHospital": "",
+            "preArrivalNotificationTime": ""
+          },
+          "isTriaged": true,
+          "details": {
+            "id": "UHID202605161332",
+            "gender": "",
+            "height": "",
+            "weight": "",
+            "isPregnant": "No",
+            "pregnancyMonths": ""
+          },
+          "admission": {
+            "isTemporaryBed": true,
+            "bedNumber": "Temporary",
+            "isMLC": "No",
+            "returnWithin72Hours": "No",
+            "lastDischargeDate": ""
+          }
+        },
+        "TriageAction": "accept",
+        "consent": {
+          "attendantName": "",
+          "relationship": "",
+          "consentGiven": false,
+          "consentDateTime": ""
+        },
+        "triage": {
+          "score": "6",
+          "condition": "alert",
+          "level": "I",
+          "isOverridden": false
+        },
+        "TriageCategory": "I"
+      },
+      "carePathway": {
+        "name": "Stroke"
+      },
+      "carepathway": {
+        "stroke-carepathway": {
+          "pathwaySpecifics": {
+            "selectedProtocol": "",
+            "protocolRationale": "",
+            "additionalAssessments": {}
+          },
+          "medicalHistoryDetails": "",
+          "personalHistoryOthers": "",
+          "familyHistory": "",
+          "patientId": "UHID202605161332",
+          "lastUpdatedBy": "EMP0003",
+          "examinationDetails": {
+            "general": {
+              "additionalNotes": "General assessment is parallel"
+            },
+            "heartSounds": {
+              "s1": true,
+              "s2": true
+            },
+            "abdomen": "softAndTender",
+            "pulseRate": {
+              "volume": "weak",
+              "character": "smoothUpstroke",
+              "rhythm": "regular"
+            },
+            "bowel": "present",
+            "lungs": {
+              "airEntry": "normal",
+              "leftLung": "clear",
+              "rightLung": "clear"
+            },
+            "cardiovascularSystem": {
+              "anxiety": "no",
+              "jvp": "normal",
+              "edemaGrade": "++"
+            }
+          },
+          "ecgFindings": {
+            "ctScanFindings": "ischemic-stroke",
+            "clotBleedLocation": "adsf"
+          },
+          "comorbidities": [
+            "diabetesMellitus"
+          ],
+          "personalHistory": {
+            "gutka": true
+          },
+          "lastFeedTime": "2026-05-16T21:32",
+          "provisionalDiagnosis": "df",
+          "neurologicalExamSchema": {
+            "vision": "normal",
+            "weakness": "no",
+            "rightPlantar": "mute",
+            "rightULSensory": "normal",
+            "rightLLSensory": "absent",
+            "cerebellarSigns": "present",
+            "leftLLSensory": "absent",
+            "leftULSensory": "reduced",
+            "facialAsymmetry": "present",
+            "swallowTest": "positive",
+            "leftPlantar": "mute",
+            "aphasia": "yes",
+            "dysarthria": "yes",
+            "gazeparesis": "yes",
+            "rightPupil": "2",
+            "leftPupil": "1",
+            "leftULMotorPower": "2",
+            "rightULMotorPower": "2",
+            "rightLLMotorPower": "3",
+            "leftLLMotorPower": "3",
+            "ataxia": "present"
+          },
+          "lastUpdated": "2026-05-16T21:33:42+05:30",
+          "specialityReferrals": null,
+          "surgicalHistory": null,
+          "dateAndTime": "",
+          "referral": {
+            "registrar": "H001-EMP-1001",
+            "registrarTime": "2026-05-16T21:33",
+            "otherConsultants": "",
+            "cardiologistTime": "",
+            "otherConsultantsTime": "",
+            "cardiologist": ""
+          },
+          "isSubmitted": true,
+          "chiefComplaint": {
+            "duration": "0.00",
+            "onsetTime": "2026-05-16T21:32",
+            "location": "left-side-of-body",
+            "typecomplaint": "sudden-weakness",
+            "factorsAffecting": "high-bp",
+            "associatedSymptoms": [
+              "None"
+            ],
+            "locationOther": "",
+            "typeOther": "",
+            "factorsAffectingOther": "",
+            "associatedSymptomsOther": ""
+          },
+          "initialAssessmentCompletionTime": "2026-05-16T21:33",
+          "seenBy": ""
+        }
+      },
+      "protocols": [
+        "ischemic-stroke-protocol"
+      ],
+      "procedures": {
+        "ischemic-stroke-protocol": []
+      },
+      "investigations": {
+        "ischemic-stroke-protocol": [
+          {
+            "id": 1778947424243004700,
+            "protocolId": "ischemic-stroke-protocol",
+            "LabPanelMasterID": 2,
+            "LabPanelName": "PROTHROMBIN TIME / PT INR",
+            "InvestigationCategory": "1",
+            "isOrdered": true,
+            "orderedDateTime": "2026-05-16T21:33",
+            "orderedBy": "EMP0003",
+            "commentsOnDeviation": "",
+            "results": "",
+            "isDeleted": false,
+            "LabPanelCode": "",
+            "orderedByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243005400,
+            "protocolId": "ischemic-stroke-protocol",
+            "LabPanelMasterID": 212,
+            "LabPanelName": "SERUM ELECTROLYTES (Na, K, C l)",
+            "InvestigationCategory": "1",
+            "isOrdered": true,
+            "orderedDateTime": "2026-05-16T21:33",
+            "orderedBy": "EMP0003",
+            "commentsOnDeviation": "",
+            "results": "",
+            "isDeleted": false,
+            "LabPanelCode": "",
+            "orderedByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243006500,
+            "protocolId": "ischemic-stroke-protocol",
+            "LabPanelMasterID": 231,
+            "LabPanelName": "URINARY CREATININE",
+            "InvestigationCategory": "1",
+            "isOrdered": true,
+            "orderedDateTime": "2026-05-16T21:33",
+            "orderedBy": "EMP0003",
+            "commentsOnDeviation": "",
+            "results": "",
+            "isDeleted": false,
+            "LabPanelCode": "",
+            "orderedByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243007000,
+            "protocolId": "ischemic-stroke-protocol",
+            "LabPanelMasterID": 368,
+            "LabPanelName": "BLOOD GLUCOSE RANDOM",
+            "InvestigationCategory": "1",
+            "isOrdered": true,
+            "orderedDateTime": "2026-05-16T21:33",
+            "orderedBy": "EMP0003",
+            "commentsOnDeviation": "",
+            "results": "",
+            "isDeleted": false,
+            "LabPanelCode": "",
+            "orderedByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243008300,
+            "protocolId": "ischemic-stroke-protocol",
+            "LabPanelMasterID": 409,
+            "LabPanelName": "CT BRAIN WITH CONTRAST",
+            "InvestigationCategory": "17",
+            "isOrdered": true,
+            "orderedDateTime": "2026-05-16T21:33",
+            "orderedBy": "EMP0003",
+            "commentsOnDeviation": "",
+            "results": "",
+            "isDeleted": false,
+            "LabPanelCode": "",
+            "orderedByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243009300,
+            "protocolId": "ischemic-stroke-protocol",
+            "LabPanelMasterID": 1153,
+            "LabPanelName": "VIRAL MARKER PROFILE",
+            "InvestigationCategory": "21",
+            "isOrdered": true,
+            "orderedDateTime": "2026-05-16T21:33",
+            "orderedBy": "EMP0003",
+            "commentsOnDeviation": "",
+            "results": "",
+            "isDeleted": false,
+            "LabPanelCode": "",
+            "orderedByName": "Dr. Tejaswi"
+          }
+        ]
+      },
+      "medications": {
+        "meta": {
+          "lastUpdated": "2026-05-16T21:31:01+05:30",
+          "updatedBy": "EMP0003",
+          "source": "admission"
+        },
+        "medication-reconciliation": [],
+        "ischemic-stroke-protocol": [
+          {
+            "id": 1778947424243000800,
+            "protocolId": "ischemic-stroke-protocol",
+            "MedicationMasterID": 123,
+            "GenericDrugName": "ASPIRIN",
+            "medicationType": "",
+            "requirement": "Essential",
+            "dosage": "150",
+            "units": "MG",
+            "RouteofAdministrationMasterID": 3,
+            "comments": "",
+            "administered": true,
+            "givenTime": "2026-05-16T21:33",
+            "givenBy": "EMP0003",
+            "isDeleted": false,
+            "medicationMasterHydrated": true,
+            "givenByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243001300,
+            "protocolId": "ischemic-stroke-protocol",
+            "MedicationMasterID": 229,
+            "GenericDrugName": "CLOPIDOGREL",
+            "medicationType": "",
+            "requirement": "Essential",
+            "dosage": "40",
+            "units": "MG",
+            "RouteofAdministrationMasterID": 6,
+            "comments": "",
+            "administered": true,
+            "givenTime": "2026-05-16T21:33",
+            "givenBy": "EMP0003",
+            "isDeleted": false,
+            "medicationMasterHydrated": true,
+            "givenByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243003000,
+            "protocolId": "ischemic-stroke-protocol",
+            "MedicationMasterID": 122,
+            "GenericDrugName": "ATORVASTATIN",
+            "medicationType": "",
+            "requirement": "Essential",
+            "dosage": "10",
+            "units": "MG",
+            "RouteofAdministrationMasterID": 12,
+            "comments": "",
+            "administered": true,
+            "givenTime": "2026-05-16T21:33",
+            "givenBy": "EMP0003",
+            "isDeleted": false,
+            "medicationMasterHydrated": true,
+            "givenByName": "Dr. Tejaswi"
+          },
+          {
+            "id": 1778947424243004000,
+            "protocolId": "ischemic-stroke-protocol",
+            "MedicationMasterID": 141,
+            "GenericDrugName": "LABETALOL",
+            "medicationType": "",
+            "requirement": "Essential",
+            "dosage": "5",
+            "units": "MG",
+            "RouteofAdministrationMasterID": 9,
+            "comments": "",
+            "administered": true,
+            "givenTime": "2026-05-16T21:33",
+            "givenBy": "EMP0003",
+            "isDeleted": false,
+            "medicationMasterHydrated": true,
+            "givenByName": "Dr. Tejaswi"
+          }
+        ]
+      },
+      "infusions": {
+        "ischemic-stroke-protocol": [
+          {
+            "id": 194,
+            "protocolId": "ischemic-stroke-protocol",
+            "MedicationMasterID": 194,
+            "GenericDrugName": "ISOTONIC CRYSTOLLOID",
+            "dosage": "1",
+            "units": "LIT",
+            "method": "IV",
+            "infusionRate": "",
+            "instructions": "",
+            "Prerequisites": "None",
+            "prescribedBy": "",
+            "administeredBy": "",
+            "startTime": "",
+            "endTime": "",
+            "nurseRemarks": "",
+            "administered": false,
+            "isDeleted": true
+          },
+          {
+            "id": 235,
+            "protocolId": "ischemic-stroke-protocol",
+            "MedicationMasterID": 235,
+            "GenericDrugName": "3% NACL",
+            "dosage": "",
+            "units": "ML",
+            "method": "IV",
+            "infusionRate": "",
+            "instructions": "",
+            "Prerequisites": "None",
+            "prescribedBy": "",
+            "administeredBy": "",
+            "startTime": "",
+            "endTime": "",
+            "nurseRemarks": "",
+            "administered": false,
+            "isDeleted": true
+          }
+        ]
+      },
+      "ischemic-stroke-decision-tree": {
+        "lastUpdatedBy": "EMP0003",
+        "lastUpdated": "2026-05-16T21:34:25+05:30",
+        "treatmentType": "mechanical"
+      },
+      "thrombectomy_protocol": {
+        "witnessConsent": {
+          "name": "",
+          "dateTime": ""
+        },
+        "activeTab": "assessment",
+        "patientId": "UHID202605161332",
+        "lastUpdatedBy": "EMP0003",
+        "journeyStarted": true,
+        "journeyStartTime": "2026-05-16T21:34:26+05:30",
+        "inclusionCriteria": {
+          "age_18_plus": true,
+          "onset_time_6h": true,
+          "occlusion_location_ica_m1": true,
+          "mrs_0_1": true,
+          "nihss_6_and_above": true,
+          "aspects_6_plus": true
+        },
+        "patientAttendantConsent": {
+          "dateTime": "2026-05-16T21:34"
+        },
+        "currentStep": "completed",
+        "lastUpdated": "2026-05-16T21:34:45+05:30",
+        "journeyCompleted": true,
+        "isSubmitted": true,
+        "doctorConsent": {
+          "dateTime": "2026-05-16T21:34",
+          "name": "Dr. Tejaswi"
+        },
+        "activeConsentTab": "doctor",
+        "procedure": {
+          "radiologistnotes": "asd",
+          "treatmenttype": "mechanical",
+          "catheterinsertion": "sadf",
+          "accesspoint": "adsf",
+          "clotretriever": "sadf",
+          "anaesthesiause": "sadf",
+          "clotcapture": "asdf",
+          "clotnavigation": "adsf",
+          "angiogramconfirmation": "sadf",
+          "datetime": "2026-05-16T21:34",
+          "clinicalnotes": "adsf",
+          "doneby": "EMP0003"
+        },
+        "journeyEndTime": "2026-05-16T21:34:45+05:30",
+        "status": "journey-completed"
+      },
+      "ed-observation": {
+        "transfer": {
+          "toBed": "observation_bed_1",
+          "reason": "Observation",
+          "fromBed": "Temporary",
+          "transferredBy": "Dr. Tejaswi",
+          "transferDateTime": "2026-05-16T21:35"
+        },
+        "medications": {
+          "infusions": [],
+          "prescribed": [],
+          "administrationLog": []
+        },
+        "observations": {
+          "entries": [],
+          "intakeOutput": [],
+          "vitals": []
+        },
+        "clinicalNotes": {
+          "entries": []
+        },
+        "investigations": {
+          "orders": []
+        },
+        "chronicle": {
+          "entries": [
+            {
+              "timestamp": "2026-05-16T21:35",
+              "entryType": "round",
+              "author": {
+                "name": "Dr. Tejaswi",
+                "id": "EMP0003",
+                "role": "physician"
+              },
+              "sbar": {
+                "situation": "asdf",
+                "background": "sadf",
+                "assessment": "sadf",
+                "recommendation": "dsf"
+              },
+              "isConcern": false,
+              "isHandoff": false,
+              "isAcknowledged": false,
+              "priority": "routine",
+              "category": "general",
+              "id": "chr-1778947535075-tjz4hzblv"
+            }
+          ]
+        },
+        "investigationManagement": {
+          "criticalAlerts": [],
+          "acknowledgments": [],
+          "results": [],
+          "meta": {
+            "completedToday": 0,
+            "lastLabSync": "2026-05-16T21:35:11+05:30",
+            "criticalCount": 0,
+            "pendingCount": 1
+          },
+          "specimenCollections": [
+            {
+              "forServiceRequest": "srv-req-1778947542514-9vgz93c9l",
+              "collectedDateTime": "2026-05-16T16:05:00.000Z",
+              "collectedBy": {
+                "id": "EMP0003",
+                "name": "Dr. Tejaswi",
+                "role": "physician"
+              },
+              "specimenType": "Blood",
+              "container": "Contact Lab",
+              "volume": "As required",
+              "status": "collected",
+              "id": "spec-1778947547330-bxg8iwcdp"
+            }
+          ],
+          "pendingOrders": [
+            {
+              "resourceType": "ServiceRequest",
+              "status": "on-hold",
+              "intent": "order",
+              "priority": "routine",
+              "code": {
+                "coding": [
+                  {
+                    "system": "local-lab-panel",
+                    "code": "1",
+                    "display": "PROSTATE SPECIFIC ANTIGEN / PSA"
+                  }
+                ],
+                "text": "PROSTATE SPECIFIC ANTIGEN / PSA"
+              },
+              "category": [
+                "laboratory"
+              ],
+              "subject": "UHID202605161332",
+              "encounter": "ENC20260516911937",
+              "requester": {
+                "id": "EMP0003",
+                "name": "Dr. Tejaswi",
+                "role": "doctor"
+              },
+              "authoredOn": "2026-05-16T21:35:42+05:30",
+              "specimenType": "Blood",
+              "containerType": "Contact Lab",
+              "requiredVolume": "As required",
+              "expectedTAT": 2,
+              "performingLab": "internal",
+              "id": "srv-req-1778947542514-9vgz93c9l"
+            }
+          ]
+        },
+        "meta": {
+          "lastUpdatedBy": "Dr. Tejaswi",
+          "currentDay": 1,
+          "admissionDateTime": "2026-05-16T21:35",
+          "totalDays": 1,
+          "lastUpdated": "2026-05-16T21:36"
+        },
+        "dietManagement": {
+          "lastUpdatedBy": "Dr. Tejaswi",
+          "consumptionLog": [],
+          "nutritionFlags": [],
+          "activeOrderId": "diet-ord-1778947554333",
+          "orderHistory": [
+            {
+              "dietType": "sago_diet",
+              "fluidRestriction": "none",
+              "restrictions": [],
+              "specialInstructions": "",
+              "indication": "",
+              "orderedAt": "2026-05-16T21:35",
+              "orderedBy": "Dr. Tejaswi",
+              "orderedByRole": "doctor",
+              "effectiveFrom": "2026-05-16T21:35",
+              "id": "diet-ord-1778947554333",
+              "status": "active"
+            }
+          ],
+          "lastUpdated": "2026-05-16T21:36",
+          "mealServices": [
+            {
+              "dietOrderId": "diet-ord-1778947554333",
+              "dietType": "sago_diet",
+              "date": "2026-05-16",
+              "mealType": "morning_snack",
+              "scheduledTime": "10:30",
+              "itemsServed": [
+                {
+                  "name": "Biscuits",
+                  "category": "side",
+                  "portion": "2-3 pieces"
+                }
+              ],
+              "deliveredAt": "2026-05-16T21:36",
+              "deliveredBy": "Dr. Tejaswi",
+              "trayStatus": "delivered",
+              "id": "meal-svc-1778947560049"
+            }
+          ]
+        },
+        "medicationManagement": {
+          "changeHistory": [
+            {
+              "id": "chg-1778947598043-qyw0dcql8",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "changeType": "created",
+              "changedAt": "2026-05-16T21:36",
+              "changedBy": {
+                "id": "EMP0003",
+                "name": "Dr. Tejaswi",
+                "role": "physician"
+              },
+              "reason": "New prescription added during observation"
+            }
+          ],
+          "lastUpdated": "2026-05-16T21:36",
+          "lastUpdatedBy": "Dr. Tejaswi",
+          "discontinuedErPrescriptionIds": [],
+          "prescriptions": [
+            {
+              "sourceType": "dmo-new",
+              "drugName": "AMIKACIN",
+              "MedicationMasterID": 2,
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "frequency": {
+                "morning": true,
+                "afternoon": false,
+                "evening": false,
+                "night": true
+              },
+              "durationValue": "5",
+              "durationUnit": "Days",
+              "startTime": "2026-05-16T21:36",
+              "foodRelation": "After Food",
+              "specialInstructions": [],
+              "notes": "",
+              "status": "active",
+              "prescribedBy": {
+                "id": "EMP0003",
+                "name": "Dr. Tejaswi",
+                "role": "doctor"
+              },
+              "id": "rx-1778947598042-xn1sp9752",
+              "prescribedAt": "2026-05-16T21:36"
+            }
+          ],
+          "scheduledDoses": [
+            {
+              "id": "dose-1778947598043-b94cvk3ru",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-15",
+              "timeSlot": "morning",
+              "scheduledTime": "2026-05-16T02:30:00.000Z",
+              "status": "given",
+              "administeredAt": "2026-05-16T21:36",
+              "administeredBy": {
+                "id": "EMP0003",
+                "name": "Dr. Tejaswi",
+                "role": "nurse"
+              }
+            },
+            {
+              "id": "dose-1778947598043-79ejrvdq3",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-15",
+              "timeSlot": "night",
+              "scheduledTime": "2026-05-16T15:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-3aev8or5q",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-16",
+              "timeSlot": "morning",
+              "scheduledTime": "2026-05-17T02:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-4ut34xamg",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-16",
+              "timeSlot": "night",
+              "scheduledTime": "2026-05-17T15:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-7n4hdh5hp",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-17",
+              "timeSlot": "morning",
+              "scheduledTime": "2026-05-18T02:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-ttq65b1nc",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-17",
+              "timeSlot": "night",
+              "scheduledTime": "2026-05-18T15:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-yrucwrcoq",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-18",
+              "timeSlot": "morning",
+              "scheduledTime": "2026-05-19T02:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-83m59tln9",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-18",
+              "timeSlot": "night",
+              "scheduledTime": "2026-05-19T15:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-ft1ltstyd",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-19",
+              "timeSlot": "morning",
+              "scheduledTime": "2026-05-20T02:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-7bjltzba5",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-19",
+              "timeSlot": "night",
+              "scheduledTime": "2026-05-20T15:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-rimm89cv2",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-20",
+              "timeSlot": "morning",
+              "scheduledTime": "2026-05-21T02:30:00.000Z",
+              "status": "pending"
+            },
+            {
+              "id": "dose-1778947598043-k0bhpmndn",
+              "prescriptionId": "rx-1778947598042-xn1sp9752",
+              "drugName": "AMIKACIN",
+              "medicationType": "TAB",
+              "dosage": "250",
+              "units": "MG",
+              "route": "ORAL",
+              "scheduledDate": "2026-05-20",
+              "timeSlot": "night",
+              "scheduledTime": "2026-05-21T15:30:00.000Z",
+              "status": "pending"
+            }
+          ]
+        }
+      },
+      "er-outcomes": {
+        "patientName": "TestingOBSEndtoEnd",
+        "patientId": "UHID202605161332",
+        "dateOfBirth": "1986-05-16",
+        "erDiagnosis": "df",
+        "patientStatus": "alive",
+        "medicoLegalCase": "",
+        "specialistId": "",
+        "specialistArrivalTime": "2026-05-16T21:34",
+        "specialistNotes": "",
+        "nurseId": "",
+        "nurseNotes": "",
+        "nurseArrivalTime": "",
+        "erNurseId": "",
+        "lamaCategory": "",
+        "lamaLegalChecklist": [],
+        "lamaReason": "",
+        "referralCategory": "",
+        "referralReason": "",
+        "neurologistAdvice": "",
+        "specialistReferrals": [
+          {
+            "id": 1,
+            "speciality": "General",
+            "specialistId": "H001-EMP-1001",
+            "specialistName": "Dr.Supriya",
+            "arrivalTime": "2026-05-16T21:33",
+            "notes": ""
+          }
+        ],
+        "createdAt": "2026-05-16T21:34",
+        "createdBy": "",
+        "lastUpdatedBy": "EMP0003",
+        "treatmentPlan": "adsf",
+        "patientShiftedTo": "observation",
+        "patientShiftDischargeTime": "2026-05-16T21:34",
+        "observationBedNumber": "observation_bed_1",
+        "nicuChecklist": {
+          "pendingInvestigations": false,
+          "criticalResults": false,
+          "pendingReferrals": false,
+          "highRiskMedication": false,
+          "knownHIVHBVHCV": false,
+          "furtherPlanDocumented": "yes",
+          "noneSelected": true
+        },
+        "clinicalNotes": "The patient presented with a chief complaint of sudden weakness, localized to the left side of the body. The onset time was 2026-05-16T21:32. The duration of symptoms was 0.00 hours. Factors affecting the symptoms included high blood pressure. Associated symptoms included none.\n\nMedical history included diabetes mellitus. The patient reported gutka use. The last documented feed time was 2026-05-16T21:32.\n\nOn physical examination, general assessment was parallel. Heart sounds S1 and S2 were present. The abdomen was soft and tender, with present bowel sounds. Lungs showed normal air entry, with both left and right lungs clear. Cardiovascular system assessment noted no anxiety, normal jugular venous pressure (JVP), and ++ edema grade. Pulse rate volume was weak, character was smooth upstroke, and rhythm was regular.\n\nNeurological examination revealed normal vision. Weakness was not present. Facial asymmetry was present. Aphasia was present. Dysarthria was present. Gazeparesis was present. Cerebellar signs were present. Ataxia was present. The swallow test was positive. Right pupil size was 2, and left pupil size was 1. Right upper limb (UL) motor power was 2, and left UL motor power was 2. Right lower limb (LL) motor power was 3, and left LL motor power was 3. Right UL sensory was normal. Right LL sensory was absent. Left UL sensory was reduced. Left LL sensory was absent. Right plantar reflex was mute, and left plantar reflex was mute.\n\nCT scan findings indicated ischemic stroke. Clot/bleed location was adsf.\n\nThe provisional diagnosis was df.\n\nThe patient was seen by a registrar at 2026-05-16T21:33. The initial assessment was completed at 2026-05-16T21:33.",
+        "hasGeneratedNotes": true,
+        "erPhysicianId": "H001-EMP-1005",
+        "erPhysicianName": "Dr.Prashanth",
+        "meta": {
+          "lastUpdated": "2026-05-16T21:35:08+05:30",
+          "updatedBy": "EMP0003",
+          "isSubmitted": true
+        },
+        "lastUpdated": "2026-05-16T21:35:09+05:30",
+        "dischargeVitalsConfirmed": true,
+        "dischargeVitalsConfirmedAt": "2026-05-16T21:38"
+      },
+      "vitals": {
+        "serial": [],
+        "admission": {
+          "id": "admission-UHID202605161332",
+          "recordedAt": "2026-05-16T21:30",
+          "recordedBy": "Dr. Tejaswi",
+          "bloodPressure": {
+            "systolic": "90",
+            "diastolic": "90",
+            "notRecorded": false
+          },
+          "heartRate": "90",
+          "respiratoryRate": "90",
+          "temperature": "90",
+          "oxygenSaturation": "90",
+          "oxygenSupport": "Room Air",
+          "bloodGlucoseLevel": "90",
+          "painScore": "1",
+          "patientCondition": "alert",
+          "triageScore": "6",
+          "triageLevel": "I",
+          "mewsScore": 6,
+          "source": "triage",
+          "isFromTriage": true
+        },
+        "observation": [
+          {
+            "id": "vital-1778947529034-sb1rxlryl",
+            "source": "observation",
+            "recordedAt": "2026-05-16T16:05:00.000Z",
+            "recordedBy": "Dr. Tejaswi",
+            "bloodPressure": {
+              "systolic": "90",
+              "diastolic": "90",
+              "notRecorded": false
+            },
+            "heartRate": "90",
+            "respiratoryRate": "90",
+            "temperature": "98",
+            "oxygenSaturation": "90",
+            "bloodGlucoseLevel": "86",
+            "painScore": "3",
+            "patientCondition": "alert",
+            "oxygenSupport": "Room Air",
+            "mewsScore": 4,
+            "triageScore": "2",
+            "triageLevel": "II"
+          }
+        ],
+        "meta": {
+          "firstVitalAt": "2026-05-16T21:30",
+          "hasAdmission": true,
+          "totalReadings": 1,
+          "lastVitalAt": "2026-05-16T16:08:00.000Z",
+          "hasDischarge": true
+        },
+        "discharge": {
+          "bloodPressure": {
+            "diastolic": "",
+            "systolic": "",
+            "notRecorded": false
+          },
+          "triageConcurrence": "accept",
+          "triageLevel": "I",
+          "mewsScore": 8,
+          "nihsScore": "",
+          "respiratoryRate": "90",
+          "oxygenSaturation": "90",
+          "oxygenSupport": "Room Air",
+          "triageScore": "1",
+          "bloodGlucoseLevel": "90",
+          "source": "er-outcomes-captured",
+          "recordedBy": "Dr. Tejaswi",
+          "iwsScore": "",
+          "heartRate": "90",
+          "recordedAt": "2026-05-16T16:08:00.000Z",
+          "gcs": {
+            "eye": "",
+            "motor": "",
+            "verbal": ""
+          },
+          "temperature": "90",
+          "patientCondition": "",
+          "painScore": "2",
+          "id": "vital-1778947711029-t388ihicg"
+        }
+      },
+      "observation-outcome": {
+        "hasGeneratedObservationCourse": true,
+        "lastUpdated": "2026-05-16T21:37:01+05:30",
+        "lastUpdatedBy": "EMP0003",
+        "prescriptionsForHome": [
+          {
+            "drugName": "TRANEXAMIC ACID",
+            "MedicationMasterID": 1,
+            "medicationType": "TAB",
+            "dosage": " 200",
+            "units": "MG",
+            "route": "ORAL",
+            "durationValue": "5",
+            "durationUnit": "Days",
+            "frequency": {
+              "morning": true,
+              "afternoon": false,
+              "evening": false,
+              "night": true,
+              "specificTime": ""
+            },
+            "foodRelation": "After Food",
+            "instructions": "",
+            "id": 1
+          }
+        ],
+        "carePlan": "adsf",
+        "observationCourse": "The patient was transferred to observation_bed_1 for observation at 2026-05-16T21:35, having been admitted to observation at the same time. A sago diet was ordered, effective from 2026-05-16T21:35, and a morning snack consisting of Biscuits was delivered at 2026-05-16T21:36. An active prescription for AMIKACIN 250 MG ORAL, to be administered morning and night for 5 days after food, was initiated at 2026-05-16T21:36. One dose of AMIKACIN 250 MG ORAL, originally scheduled for the morning of 2026-05-15, was administered at 2026-05-16T21:36. No other clinical observations, vital signs, or clinical notes are documented in this section. No investigation results are available.",
+        "transfer": "discharge",
+        "outcomeDate": "2026-05-16T21:36",
+        "generalInstructions": "",
+        "patientStatus": "alive",
+        "meta": {
+          "updatedBy": "EMP0003",
+          "lastUpdated": "2026-05-16T21:35:11+05:30",
+          "isSubmitted": true
+        }
+      }
+    },
+    "lifecycle": {
+      "createdAt": "2026-05-16T21:27:10+05:30",
+      "lockedAt": null,
+      "submittedBy": "EMP0003",
+      "submittedAt": "2026-05-16T21:35:12+05:30",
+      "submittedDate": "2026-05-16",
+      "editableUntil": "2026-05-19T21:35:12+05:30",
+      "status": "submitted"
+    },
+    "lastUpdated": {
+      "_seconds": 1778947513,
+      "_nanoseconds": 0
+    },
+    "journey": {
+      "patientId": "UHID202605161332",
+      "encounterId": "ENC20260516911937",
+      "hospitalId": "H001",
+      "createdAt": "2026-05-16T21:27:10+05:30",
+      "isFirstVisit": true,
+      "lastUpdatedBy": "EMP0003",
+      "carePathwayId": "Stroke",
+      "selectedCarePathway": "stroke",
+      "protocolSelections": {
+        "ischemic-stroke-protocol-orderset": "ischemic-stroke"
+      },
+      "currentPhase": "completed",
+      "completedSteps": {
+        "registration": {
+          "stepId": "registration",
+          "completedAt": "2026-05-16T21:27:10+05:30",
+          "completedBy": "EMP0003"
+        },
+        "patient-registration": {
+          "stepId": "patient-registration",
+          "completedAt": "2026-05-16T21:27:10+05:30",
+          "completedBy": "EMP0003"
+        },
+        "admission-triage": {
+          "stepId": "admission-triage",
+          "completedAt": "2026-05-16T21:31:24+05:30",
+          "completedBy": "EMP0003",
+          "canReopen": true
+        },
+        "stroke-pathway": {
+          "stepId": "stroke-pathway",
+          "completedAt": "2026-05-16T21:33:42+05:30",
+          "completedBy": "EMP0003",
+          "canReopen": true
+        },
+        "ischemic-stroke-protocol-orderset": {
+          "stepId": "ischemic-stroke-protocol-orderset",
+          "completedAt": "2026-05-16T21:34:21+05:30",
+          "completedBy": "EMP0003",
+          "canReopen": true
+        },
+        "ischemic-stroke-decision-tree": {
+          "stepId": "ischemic-stroke-decision-tree",
+          "completedAt": "2026-05-16T21:34:25+05:30",
+          "completedBy": "EMP0003",
+          "canReopen": true
+        },
+        "thrombectomy-protocol": {
+          "stepId": "thrombectomy-protocol",
+          "completedAt": "2026-05-16T21:34:45+05:30",
+          "completedBy": "EMP0003",
+          "canReopen": true
+        },
+        "er-outcome": {
+          "stepId": "er-outcome",
+          "completedBy": "EMP0003",
+          "canReopen": true,
+          "completedAt": "2026-05-16T21:38:40+05:30"
+        },
+        "observation-outcome": {
+          "stepId": "observation-outcome",
+          "completedAt": "2026-05-16T21:38:40+05:30",
+          "completedBy": "EMP0003",
+          "canReopen": true
+        },
+        "ed-observation": {
+          "stepId": "ed-observation",
+          "completedBy": "EMP0003",
+          "canReopen": true,
+          "completedAt": "2026-05-16T21:38:40+05:30"
+        }
+      },
+      "lastUpdated": "2026-05-16T21:38:40+05:30",
+      "carePathwaySteps": [
+        {
+          "id": "patient-registration",
+          "title": "Patient Registration",
+          "to": "/newpatientregistration",
+          "alwaysAccessible": true,
+          "isCompleted": true,
+          "canAccess": true
+        },
+        {
+          "id": "admission-triage",
+          "title": "Arrival and Triage",
+          "to": "/patientadmissiontriage",
+          "prerequisites": [
+            "patient-registration"
+          ],
+          "isCompleted": true,
+          "canAccess": true
+        },
+        {
+          "id": "stroke-pathway",
+          "title": "Stroke Care Pathway",
+          "to": "/defaultcarepathway",
+          "prerequisites": [
+            "admission-triage",
+            "patient-registration"
+          ],
+          "children": [
+            {
+              "id": "ic-bleed",
+              "title": "IC Bleed Guidance",
+              "to": "/ic-bleed-guidance",
+              "prerequisites": [
+                "stroke-pathway"
+              ],
+              "children": [
+                {
+                  "id": "ic-bleed-protocol",
+                  "title": "IC Bleed Protocol Orderset",
+                  "to": "/ic-bleed-protocol",
+                  "prerequisites": [
+                    "ic-bleed"
+                  ],
+                  "isCompleted": false,
+                  "canAccess": false
+                }
+              ],
+              "isCompleted": false,
+              "canAccess": true
+            },
+            {
+              "id": "ischemic-stroke-protocol-orderset",
+              "title": "Ischemic Stroke",
+              "to": "/ic-bleed-protocol",
+              "prerequisites": [
+                "stroke-pathway"
+              ],
+              "children": [
+                {
+                  "id": "ischemic-stroke-decision-tree",
+                  "title": "Ischemic Stroke Decision Tree",
+                  "to": "/ischemic-stroke-decision-tree",
+                  "prerequisites": [
+                    "ischemic-stroke-protocol-orderset"
+                  ],
+                  "children": [
+                    {
+                      "id": "ischemic-stroke-thrombolysis",
+                      "title": "Thrombolysis",
+                      "to": "/ischemic-stroke-decision-tree",
+                      "prerequisites": [
+                        "ischemic-stroke-decision-tree"
+                      ],
+                      "isCompleted": false,
+                      "canAccess": true
+                    },
+                    {
+                      "id": "thrombectomy-protocol",
+                      "title": "Thrombectomy Protocol",
+                      "to": "/thrombectomy-protocol",
+                      "prerequisites": [
+                        "ischemic-stroke-decision-tree"
+                      ],
+                      "isCompleted": true,
+                      "canAccess": true
+                    }
+                  ],
+                  "isCompleted": true,
+                  "canAccess": true
+                }
+              ],
+              "isCompleted": true,
+              "canAccess": true
+            },
+            {
+              "id": "other-stroke",
+              "title": "Other",
+              "to": "/ic-bleed-protocol",
+              "prerequisites": [
+                "stroke-pathway"
+              ],
+              "isCompleted": false,
+              "canAccess": true
+            }
+          ],
+          "isCompleted": true,
+          "canAccess": true
+        },
+        {
+          "id": "er-outcome",
+          "title": "ER Outcome",
+          "to": "/eroutcomes",
+          "anyPrerequisite": [
+            "cpr",
+            "ic-bleed",
+            "ic-bleed-protocol",
+            "ischemic-stroke-protocol-orderset",
+            "ischemic-stroke-thrombolysis",
+            "thrombectomy-protocol",
+            "other-stroke"
+          ],
+          "isCompleted": true,
+          "canAccess": true
+        },
+        {
+          "id": "ed-observation",
+          "title": "Observation",
+          "to": "/ed-observation",
+          "prerequisites": [
+            "er-outcome"
+          ],
+          "dataCondition": {
+            "path": "sections.er-outcomes.patientShiftedTo",
+            "oneOf": [
+              "observation"
+            ]
+          },
+          "isCompleted": true,
+          "canAccess": true
+        },
+        {
+          "id": "observation-outcome",
+          "title": "Observation Outcome",
+          "to": "/observation-outcome",
+          "prerequisites": [
+            "ed-observation"
+          ],
+          "draftSatisfiesPrereq": true,
+          "isCompleted": true,
+          "canAccess": true
+        },
+        {
+          "id": "vitals",
+          "title": "Vitals Chart",
+          "to": "/vitals",
+          "alwaysAccessible": true,
+          "isCompleted": false,
+          "canAccess": true
+        },
+        {
+          "id": "cpr",
+          "title": "CPR (if required)",
+          "to": "/cprform",
+          "prerequisites": [
+            "admission-triage"
+          ],
+          "isCompleted": false,
+          "canAccess": true
+        }
+      ],
+      "draftSteps": {
+        "admission-triage": null,
+        "stroke-pathway": null,
+        "ischemic-stroke-protocol-orderset": null,
+        "ischemic-stroke-decision-tree": null,
+        "thrombectomy-protocol": null,
+        "er-outcome": null,
+        "ed-observation": null,
+        "observation-outcome": null
+      }
+    }
+  },
+  "registrationDetails": null,
+  "treatingTeam": [
+    {
+      "employeeId": "EMP0003",
+      "doctorName": "Dr. Tejaswi",
+      "role": "Physician",
+      "phase": "Observation",
+      "assignmentStatus": "Documented",
+      "assignmentStartDateTime": "2026-05-16T21:35",
+      "assignmentEndDateTime": "2026-05-16T21:35"
+    },
+    {
+      "employeeId": "EMP0003",
+      "doctorName": "Dr. Tejaswi",
+      "role": "Doctor",
+      "phase": "ER",
+      "assignmentStatus": "Active",
+      "assignmentStartDateTime": "2026-05-16 21:27:13",
+      "assignmentEndDateTime": null
+    }
+  ],
+  "exportedAt": "2026-05-29T16:43:31+05:30"
+}

@@ -313,6 +313,7 @@
           "notes": "Symptomatic care if febrile/pain"
         }
       ],
+      "nursingAssessments": [],
       "pathwayOverride": null,
       "outcome": {
         "shiftedTo": "Discharge",
@@ -372,6 +373,7 @@
           "notes": "Symptomatic care if febrile/pain"
         }
       ],
+      "nursingAssessments": [],
       "pathwayOverride": null,
       "outcome": {
         "shiftedTo": "Discharge",
