@@ -383,6 +383,58 @@
         "carePlan": "",
         "summary": ""
       }
+    },
+    "p6": {
+      "formValues": {
+        "initial_triage_time": "21/05/2026 10:36",
+        "height_cm": "",
+        "weight_kg": "",
+        "mode_of_arrival_to_er": "Walk In",
+        "informed_by": "Self",
+        "return_to_er_within_72_hours": "No",
+        "brought_by": "",
+        "ambulance_referral_id": "",
+        "is_this_an_mlc_case": "No",
+        "police_station": "",
+        "mlc_number": "",
+        "inward_referral": "Not Applicable",
+        "referral_facility": "",
+        "referral_reason": "Not Applicable"
+      },
+      "chiefComplaint": "",
+      "vitals": {
+        "sbp": "",
+        "dbp": "",
+        "hr": "",
+        "rr": "",
+        "spo2": "",
+        "temp": "",
+        "grbs": ""
+      },
+      "orderedItems": [
+        {
+          "category": "investigation",
+          "name": "CBC",
+          "requirement": "Essential",
+          "notes": "Initial ER panel"
+        },
+        {
+          "category": "medication",
+          "name": "Paracetamol",
+          "requirement": "PRN",
+          "notes": "Symptomatic care if febrile/pain"
+        }
+      ],
+      "nursingAssessments": [],
+      "pathwayOverride": null,
+      "outcome": {
+        "shiftedTo": "Discharge",
+        "patientStatus": "Alive",
+        "provisionalDiagnosis": "",
+        "course": "The patient's provisional diagnosis was x. Documented comorbidities included none. The patient's last documented feed time was 2026-05-21 at 00:00. Personal history included smoking.",
+        "carePlan": "",
+        "summary": ""
+      }
     }
   }
 }

@@ -348,6 +348,8 @@ export function Operational({
   applyFilter,
   onDrill,
   onViewPatients,
+  hideSuggested = false,
+  compact = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -356,6 +358,8 @@ export function Operational({
   applyFilter: (filter: DashboardFilter) => void;
   onDrill: (metric: Metric) => void;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  hideSuggested?: boolean;
+  compact?: boolean;
 }) {
   const [footfallView, setFootfallView] = useState<FootfallView>("hour");
   const [protocolView, setProtocolView] = useState<ProtocolView>("day");
@@ -363,7 +367,7 @@ export function Operational({
   const existingMetricIds = ["iaTat", "erTat", "bedOcc", "ppd", "mlcCases"];
   const suggestedMetricIds = ["avgLos", "dispositionTat", "ppn"];
   const existingMetrics = existingMetricIds.map(id => METRICS.find(m => m.id === id)!);
-  const suggestedMetrics = suggestedMetricIds.map(id => METRICS.find(m => m.id === id)!);
+  const suggestedMetrics = hideSuggested ? [] : suggestedMetricIds.map(id => METRICS.find(m => m.id === id)!);
   const footfall = buildFootfall(days, multiplier);
   const footfallRollup = rollupFootfall(footfallView, footfall);
   const highestFootfall = Math.max(...footfallRollup.map(row => row.patients));
@@ -385,7 +389,7 @@ export function Operational({
       <Section title="Operational KPIs">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {existingMetrics.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} compact={compact} />
           ))}
         </div>
       </Section>
@@ -399,6 +403,7 @@ export function Operational({
             onSelect={label => applyFilter({ source: "Disposition", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
           <PieAnalyticsCard
             title="Triage Categories Distribution"
@@ -407,6 +412,7 @@ export function Operational({
             onSelect={label => applyFilter({ source: "Triage", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
           <StackedBarCard
             title="Triage Levels vs ER Disposition"
@@ -420,6 +426,7 @@ export function Operational({
             })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
         </div>
       </Section>
@@ -435,6 +442,7 @@ export function Operational({
               </div>
             }
             active={Boolean(activeFilter)}
+            compact={compact}
           >
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={footfallRollup} margin={{ top: 20, right: 18, left: 8, bottom: 36 }} onClick={event => selectFromChart(event, "Footfall", applyFilter)}>
@@ -455,12 +463,14 @@ export function Operational({
       </Section>
 
       <Section title="Arrival and Stage Time">
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          {suggestedMetrics.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+        {suggestedMetrics.length ? (
+          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {suggestedMetrics.map(metric => (
+              <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} compact={compact} />
+            ))}
+          </div>
+        ) : null}
+        <div className={`grid grid-cols-1 items-stretch gap-4 ${hideSuggested ? "" : "xl:grid-cols-2"}`}>
           <StackedBarCard
             title="Ambulance vs Walk In"
             data={footfall.slice(-10).map(row => ({ name: fmtShort(row.date), Ambulance: row.ambulance, "Walk In": row.walkIn }))}
@@ -470,16 +480,20 @@ export function Operational({
             onSelect={label => applyFilter({ source: "Arrival Mode", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
-          <DonutCard
-            title="Time Taken Breakdown by Stage"
-            data={stageData}
-            activeFilter={activeFilter}
-            suggested
-            onSelect={label => applyFilter({ source: "Stage Delay", label })}
-            patients={sectionPatients}
-            onViewPatients={onViewPatients}
-          />
+          {hideSuggested ? null : (
+            <DonutCard
+              title="Time Taken Breakdown by Stage"
+              data={stageData}
+              activeFilter={activeFilter}
+              suggested
+              onSelect={label => applyFilter({ source: "Stage Delay", label })}
+              patients={sectionPatients}
+              onViewPatients={onViewPatients}
+              compact={compact}
+            />
+          )}
         </div>
       </Section>
 
@@ -493,6 +507,7 @@ export function Operational({
             onSelect={label => applyFilter({ source: "Admission Trend", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
           <StackedBarCard
             title="Age Group with Gender Distribution"
@@ -506,13 +521,14 @@ export function Operational({
             })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
         </div>
       </Section>
 
       <Section title="Beds and Protocol Orders">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <BedOccupancyTable activeFilter={activeFilter} patients={sectionPatients} onViewPatients={onViewPatients} />
+          <BedOccupancyTable activeFilter={activeFilter} patients={sectionPatients} onViewPatients={onViewPatients} compact={compact} />
           <ChartCard
             title="Protocol Set Ordered"
             action={
@@ -522,6 +538,7 @@ export function Operational({
               </div>
             }
             active={Boolean(activeFilter)}
+            compact={compact}
           >
             <ResponsiveContainer width="100%" height={310}>
               <BarChart data={protocolRows} layout="vertical" margin={{ top: 12, right: 34, left: 86, bottom: 12 }} onClick={event => selectFromChart(event, "Protocol Orders", applyFilter)}>
@@ -560,6 +577,8 @@ export function Clinical({
   applyFilter,
   onDrill,
   onViewPatients,
+  hideSuggested = false,
+  compact = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -568,30 +587,35 @@ export function Clinical({
   applyFilter: (filter: DashboardFilter) => void;
   onDrill: (metric: Metric) => void;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  hideSuggested?: boolean;
+  compact?: boolean;
 }) {
   const multiplier = filterRatio;
-  const kpis = ["carePlan", "doorThromb", "doorBalloon", "investigationTat"].map(id => METRICS.find(m => m.id === id)!);
+  const kpis = ["carePlan", "doorThromb", "doorBalloon", "investigationTat"]
+    .map(id => METRICS.find(m => m.id === id)!)
+    .filter(metric => !(hideSuggested && metric.isNew));
   const mewsTrend = buildMewsTrend(days, multiplier);
   const sectionPatients = filterPatients(patients, activeFilter);
 
   return (
     <div className="space-y-5">
       <Section title="Clinical Recognition and Pathway Activation">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className={`grid grid-cols-2 gap-3 ${compact && hideSuggested ? "md:grid-cols-4" : "md:grid-cols-5"}`}>
           {kpis.slice(0, 3).map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} compact={compact} />
           ))}
-          <MewsCard data={mewsTrend} onClick={() => onDrill({ id: "mews", label: "MEWS", group: "clinical", kind: "score", baseline: 0, target: "Risk trajectory", tone: "amber", Icon: HeartPulse, fmt: v => v.toFixed(1) })} />
-          <MetricCard metric={kpis[3]} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+          <MewsCard data={mewsTrend} compact={compact} onClick={() => onDrill({ id: "mews", label: "MEWS", group: "clinical", kind: "score", baseline: 0, target: "Risk trajectory", tone: "amber", Icon: HeartPulse, fmt: v => v.toFixed(1) })} />
+          {kpis[3] ? <MetricCard metric={kpis[3]} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} compact={compact} /> : null}
         </div>
       </Section>
 
       <Section title="Care Pathways and Daily Case Mix">
-        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+        <div className={`grid grid-cols-1 items-stretch gap-4 ${hideSuggested ? "" : "xl:grid-cols-2"}`}>
           <ChartCard
             title="ER Cases by Care Pathway"
             active={Boolean(activeFilter)}
             action={<PatientListLink title="ER Cases by Care Pathway" patients={sectionPatients} onViewPatients={onViewPatients} />}
+            compact={compact}
           >
             <ResponsiveContainer width="100%" height={270}>
               <BarChart data={buildPathwayCaseRows(sectionPatients, multiplier)} margin={{ top: 20, right: 24, left: 8, bottom: 52 }} onClick={event => selectFromChart(event, "Care Pathway", applyFilter)}>
@@ -605,16 +629,19 @@ export function Clinical({
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
-          <LineAnalyticsCard
-            title="ER Cases by Day"
-            data={buildDailyCases(days, multiplier).map(row => ({ name: fmtShort(row.date), Cases: row.cases }))}
-            keys={["Cases"]}
+          {hideSuggested ? null : (
+            <LineAnalyticsCard
+              title="ER Cases by Day"
+              data={buildDailyCases(days, multiplier).map(row => ({ name: fmtShort(row.date), Cases: row.cases }))}
+              keys={["Cases"]}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Daily ER Cases", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
             suggested
+            compact={compact}
           />
+          )}
         </div>
       </Section>
 
@@ -627,6 +654,7 @@ export function Clinical({
             onSelect={label => applyFilter({ source: "Medication", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
           <RankList
             title="Top 15 Investigations Ordered"
@@ -635,6 +663,7 @@ export function Clinical({
             onSelect={label => applyFilter({ source: "Investigation", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
+            compact={compact}
           />
         </div>
       </Section>
@@ -650,6 +679,8 @@ export function Quality({
   applyFilter,
   onDrill,
   onViewPatients,
+  hideSuggested = false,
+  compact = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -658,33 +689,41 @@ export function Quality({
   applyFilter: (filter: DashboardFilter) => void;
   onDrill: (metric: Metric) => void;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  hideSuggested?: boolean;
+  compact?: boolean;
 }) {
   const [referralView, setReferralView] = useState<ReferralView>("reason");
   const [lamaView, setLamaView] = useState<LamaView>("reason");
   const multiplier = filterRatio;
   const sectionPatients = filterPatients(patients, activeFilter);
-  const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"].map(id => METRICS.find(m => m.id === id)!);
-  const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"].map(id => METRICS.find(m => m.id === id)!);
+  const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"]
+    .map(id => METRICS.find(m => m.id === id)!)
+    .filter(metric => !(hideSuggested && metric.isNew));
+  const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"]
+    .map(id => METRICS.find(m => m.id === id)!)
+    .filter(metric => !(hideSuggested && metric.isNew));
   const referralRows = buildReferralRows(referralView, multiplier);
   const lamaRows = lamaView === "reason" ? scaleNamedRows(lamaReasonBase, multiplier) : scaleNamedRows(lamaPinBase, multiplier);
 
   return (
     <div className="space-y-5">
       <Section title="Safety Outcomes">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className={`grid grid-cols-2 gap-3 ${compact && hideSuggested ? "md:grid-cols-4" : "md:grid-cols-5"}`}>
           {outcome.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
+            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} compact={compact} />
           ))}
         </div>
       </Section>
 
-      <Section title="Experience, Readiness, and Bed Turnover">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {experience.map(metric => (
-            <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} />
-          ))}
-        </div>
-      </Section>
+      {experience.length ? (
+        <Section title="Experience, Readiness, and Bed Turnover">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {experience.map(metric => (
+              <MetricCard key={metric.id} metric={metric} days={days} activeFilter={activeFilter} filterRatio={filterRatio} onDrill={onDrill} compact={compact} />
+            ))}
+          </div>
+        </Section>
+      ) : null}
 
       <Section title="Referrals and LAMA">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
@@ -697,6 +736,7 @@ export function Quality({
               </div>
             }
             active={Boolean(activeFilter)}
+            compact={compact}
           >
             <ResponsiveContainer width="100%" height={245}>
               <BarChart data={referralRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "Outward Referral", applyFilter)}>
@@ -720,6 +760,7 @@ export function Quality({
               </div>
             }
             active={Boolean(activeFilter)}
+            compact={compact}
           >
             <ResponsiveContainer width="100%" height={245}>
               <BarChart data={lamaRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "LAMA", applyFilter)}>
@@ -809,12 +850,14 @@ function MetricCard({
   activeFilter,
   filterRatio,
   onDrill,
+  compact = false,
 }: {
   metric: Metric;
   days: string[];
   activeFilter: DashboardFilter | null;
   filterRatio: number;
   onDrill: (metric: Metric) => void;
+  compact?: boolean;
 }) {
   const series = useMemo(() => buildSeries(metric, days, filterRatio), [metric, days, filterRatio]);
   const avg = series.reduce((sum, item) => sum + item.value, 0) / Math.max(series.length, 1);
@@ -823,7 +866,9 @@ function MetricCard({
   return (
     <button
       onClick={() => onDrill(metric)}
-      className={`group min-h-[92px] rounded-2xl bg-card p-3 text-left shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-soft-lg ${
+      className={`group rounded-2xl bg-card text-left shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-soft-lg ${
+        compact ? "min-h-[64px] p-2.5" : "min-h-[92px] p-3"
+      } ${
         metric.isNew ? "border-2 border-dashed border-coral/70" : "border border-border/80"
       }`}
     >
@@ -833,8 +878,8 @@ function MetricCard({
           <Icon className="h-3.5 w-3.5" />
         </span>
       </div>
-      <div className="mt-2 text-xl font-bold tracking-tight text-navy">{metric.fmt(avg)}</div>
-      <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] font-medium text-muted-foreground">
+      <div className={`${compact ? "mt-1 text-[1.45rem] leading-none" : "mt-2 text-xl"} font-bold tracking-tight text-navy`}>{metric.fmt(avg)}</div>
+      <div className={`${compact ? "mt-0" : "mt-0.5"} flex items-center justify-between gap-2 text-[10px] font-medium text-muted-foreground`}>
         <span>{metric.target}</span>
         <ChevronRight className="h-3.5 w-3.5 text-coral opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
@@ -842,12 +887,22 @@ function MetricCard({
   );
 }
 
-function MewsCard({ data, onClick }: { data: { admission: number; discharge: number }[]; onClick: () => void }) {
+function MewsCard({
+  data,
+  onClick,
+  compact = false,
+}: {
+  data: { admission: number; discharge: number }[];
+  onClick: () => void;
+  compact?: boolean;
+}) {
   const latest = data[data.length - 1] ?? { admission: 4.6, discharge: 1.8 };
   return (
     <button
       onClick={onClick}
-      className="group min-h-[92px] rounded-2xl border border-border/80 bg-card p-3 text-left shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-soft-lg"
+      className={`group rounded-2xl border border-border/80 bg-card text-left shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-soft-lg ${
+        compact ? "min-h-[64px] p-2.5" : "min-h-[92px] p-3"
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-[10px] font-bold uppercase leading-snug tracking-[0.12em] text-muted-foreground">MEWS</span>
@@ -855,12 +910,12 @@ function MewsCard({ data, onClick }: { data: { admission: number; discharge: num
           <HeartPulse className="h-3.5 w-3.5" />
         </span>
       </div>
-      <div className="mt-2 flex items-baseline gap-2 text-xl font-bold tracking-tight">
+      <div className={`${compact ? "mt-1 gap-1.5 text-[1.45rem] leading-none" : "mt-2 gap-2 text-xl"} flex items-baseline font-bold tracking-tight`}>
         <span className="text-coral">{latest.admission.toFixed(1)}</span>
         <span className="text-xs text-muted-foreground">to</span>
         <span className="text-green-600">{latest.discharge.toFixed(1)}</span>
       </div>
-      <div className="mt-0.5 flex items-center justify-between text-[10px] font-medium text-muted-foreground">
+      <div className={`${compact ? "mt-0" : "mt-0.5"} flex items-center justify-between text-[10px] font-medium text-muted-foreground`}>
         <span>Risk trajectory</span>
         <ChevronRight className="h-3.5 w-3.5 text-coral opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
@@ -874,16 +929,20 @@ function ChartCard({
   active,
   suggested,
   children,
+  compact = false,
 }: {
   title: string;
   action?: ReactNode;
   active?: boolean;
   suggested?: boolean;
   children: ReactNode;
+  compact?: boolean;
 }) {
   return (
     <div
-      className={`flex h-full min-h-[348px] flex-col rounded-[1.5rem] bg-card p-4 shadow-soft transition-all ${
+      className={`flex h-full flex-col rounded-[1.5rem] bg-card shadow-soft transition-all ${
+        compact ? "min-h-[248px] p-3" : "min-h-[348px] p-4"
+      } ${
         suggested ? "border-2 border-dashed border-coral/70" : "border border-border/80"
       } ${active ? "ring-2 ring-coral/10" : ""}`}
     >
@@ -891,7 +950,7 @@ function ChartCard({
         <h3 className="text-sm font-bold text-navy">{title}</h3>
         {action}
       </div>
-      <div className="flex flex-1 flex-col justify-center">{children}</div>
+      <div className={`flex flex-1 flex-col ${compact ? "justify-start" : "justify-center"}`}>{children}</div>
     </div>
   );
 }
@@ -923,6 +982,7 @@ function PieAnalyticsCard({
   onSelect,
   patients,
   onViewPatients,
+  compact = false,
 }: {
   title: string;
   data: { name: string; value: number; color: string }[];
@@ -930,14 +990,16 @@ function PieAnalyticsCard({
   onSelect: (label: string) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  compact?: boolean;
 }) {
   return (
     <ChartCard
       title={title}
       active={Boolean(activeFilter)}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+      compact={compact}
     >
-      <ResponsiveContainer width="100%" height={230}>
+      <ResponsiveContainer width="100%" height={compact ? 205 : 230}>
         <PieChart>
           <Pie
             data={data}
@@ -964,7 +1026,7 @@ function PieAnalyticsCard({
           <Tooltip cursor={false} contentStyle={tooltipStyle} />
         </PieChart>
       </ResponsiveContainer>
-      <Legend items={data} />
+      <Legend items={data} compact={compact} />
     </ChartCard>
   );
 }
@@ -979,6 +1041,7 @@ function StackedBarCard({
   onSelect,
   patients,
   onViewPatients,
+  compact = false,
 }: {
   title: string;
   data: Record<string, string | number>[];
@@ -989,6 +1052,7 @@ function StackedBarCard({
   onSelect: (label: string, payload?: Record<string, string | number>) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  compact?: boolean;
 }) {
   return (
     <ChartCard
@@ -996,8 +1060,9 @@ function StackedBarCard({
       active={Boolean(activeFilter)}
       suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+      compact={compact}
     >
-      <ResponsiveContainer width="100%" height={330}>
+      <ResponsiveContainer width="100%" height={compact ? 310 : 330}>
         <BarChart
           data={data}
           margin={{ top: 24, right: 18, left: 8, bottom: 58 }}
@@ -1007,7 +1072,7 @@ function StackedBarCard({
           <XAxis dataKey={xKey} interval={0} angle={-16} textAnchor="end" tick={axisTick} height={64} />
           <YAxis tick={axisTick} label={axisLabel("Patients")} />
           <Tooltip cursor={false} contentStyle={tooltipStyle} />
-          <RLegend content={<RawLegendContent />} />
+          <RLegend content={<RawLegendContent compact={compact} />} />
           {stackBars(keys, data)}
         </BarChart>
       </ResponsiveContainer>
@@ -1024,6 +1089,7 @@ function LineAnalyticsCard({
   onSelect,
   patients,
   onViewPatients,
+  compact = false,
 }: {
   title: string;
   data: Record<string, string | number>[];
@@ -1033,6 +1099,7 @@ function LineAnalyticsCard({
   onSelect: (label: string) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  compact?: boolean;
 }) {
   return (
     <ChartCard
@@ -1040,14 +1107,15 @@ function LineAnalyticsCard({
       active={Boolean(activeFilter)}
       suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+      compact={compact}
     >
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={compact ? 275 : 300}>
         <LineChart data={data} margin={{ top: 20, right: 28, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, title, (_, payload) => onSelect(String(payload?.name ?? title)))}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="name" interval="preserveStartEnd" angle={-16} textAnchor="end" tick={axisTick} height={58} />
           <YAxis tick={axisTick} label={axisLabel("Value")} />
           <Tooltip cursor={false} contentStyle={tooltipStyle} />
-          {keys.length > 1 && <RLegend content={<RawLegendContent />} />}
+          {keys.length > 1 && <RLegend content={<RawLegendContent compact={compact} />} />}
           {keys.map((key, index) => (
             <Line
               key={key}
@@ -1074,6 +1142,7 @@ function DonutCard({
   onSelect,
   patients,
   onViewPatients,
+  compact = false,
 }: {
   title: string;
   data: { name: string; value: number; color: string }[];
@@ -1082,6 +1151,7 @@ function DonutCard({
   onSelect: (label: string) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  compact?: boolean;
 }) {
   return (
     <ChartCard
@@ -1089,8 +1159,9 @@ function DonutCard({
       active={Boolean(activeFilter)}
       suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
+      compact={compact}
     >
-      <ResponsiveContainer width="100%" height={255}>
+      <ResponsiveContainer width="100%" height={compact ? 220 : 255}>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" innerRadius={52} outerRadius={86} paddingAngle={4} label={({ value }) => `${value}m`} labelLine={false} onClick={(row: { name: string }) => onSelect(row.name)}>
             {data.map(item => <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={2} />)}
@@ -1098,7 +1169,7 @@ function DonutCard({
           <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(value: number) => `${value} min`} />
         </PieChart>
       </ResponsiveContainer>
-      <Legend items={data} />
+      <Legend items={data} compact={compact} />
     </ChartCard>
   );
 }
@@ -1163,6 +1234,7 @@ function RankList({
   onSelect,
   patients,
   onViewPatients,
+  compact = false,
 }: {
   title: string;
   Icon: typeof Pill;
@@ -1170,10 +1242,11 @@ function RankList({
   onSelect: (label: string) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  compact?: boolean;
 }) {
   const max = Math.max(...items.map(item => item.value));
   return (
-    <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
+    <div className={`rounded-[1.5rem] border border-border/80 bg-card shadow-soft ${compact ? "p-3" : "p-4"}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="inline-flex items-center gap-2 text-sm font-bold text-navy">
           <Icon className="h-4 w-4 text-coral" />
@@ -1203,14 +1276,16 @@ function BedOccupancyTable({
   activeFilter,
   patients,
   onViewPatients,
+  compact = false,
 }: {
   activeFilter: DashboardFilter | null;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
+  compact?: boolean;
 }) {
   const multiplier = filterMultiplier(activeFilter);
   return (
-    <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
+    <div className={`rounded-[1.5rem] border border-border/80 bg-card shadow-soft ${compact ? "p-3" : "p-4"}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-bold text-navy">Bed Occupancy by Area</h3>
@@ -1507,7 +1582,7 @@ export function MetricDrillPanel({
   );
 }
 
-function GraphPatientsPanel({
+export function GraphPatientsPanel({
   title,
   patients,
   onClose,
@@ -1589,12 +1664,23 @@ function stackBars(keys: string[], data: Record<string, string | number>[]) {
   ));
 }
 
-function Legend({ items }: { items: { name: string; value: number; color: string }[] }) {
+function Legend({
+  items,
+  compact = false,
+}: {
+  items: { name: string; value: number; color: string }[];
+  compact?: boolean;
+}) {
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
+    <div className={`flex flex-wrap ${compact ? "mt-1.5 gap-1" : "mt-2 gap-1.5"}`}>
       {items.map(item => (
-        <button key={item.name} className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/35 px-2 py-0.5 text-[10px] font-semibold text-navy transition-colors hover:bg-secondary/60">
-          <span className="h-2 w-2 rounded-full" style={{ background: item.color }} />
+        <button
+          key={item.name}
+          className={`inline-flex items-center rounded-full border border-border/70 bg-secondary/35 font-semibold text-navy transition-colors hover:bg-secondary/60 ${
+            compact ? "gap-1 px-1.5 py-0.5 text-[9px]" : "gap-1.5 px-2 py-0.5 text-[10px]"
+          }`}
+        >
+          <span className={`${compact ? "h-1.5 w-1.5" : "h-2 w-2"} rounded-full`} style={{ background: item.color }} />
           <span>{item.name}</span>
           <span className="font-bold tabular-nums text-navy">{item.value}</span>
         </button>
@@ -1603,18 +1689,24 @@ function Legend({ items }: { items: { name: string; value: number; color: string
   );
 }
 
-function RawLegendContent(props: ComponentProps<typeof RLegend>) {
+function RawLegendContent(props: ComponentProps<typeof RLegend> & { compact?: boolean }) {
   const payload = props.payload?.filter(item => item.type !== "none") ?? [];
+  const compact = props.compact ?? false;
 
   if (!payload.length) {
     return null;
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4">
+    <div className={`flex flex-wrap items-center justify-center ${compact ? "gap-1 pt-2" : "gap-1.5 pt-4"}`}>
       {payload.map(item => (
-        <div key={`${item.dataKey ?? item.value}`} className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/35 px-2 py-0.5 text-[10px] font-semibold text-navy">
-          <span className="h-2 w-2 rounded-full" style={{ background: item.color ?? COLORS.navy }} />
+        <div
+          key={`${item.dataKey ?? item.value}`}
+          className={`inline-flex items-center rounded-full border border-border/70 bg-secondary/35 font-semibold text-navy ${
+            compact ? "gap-1 px-1.5 py-0.5 text-[9px]" : "gap-1.5 px-2 py-0.5 text-[10px]"
+          }`}
+        >
+          <span className={`${compact ? "h-1.5 w-1.5" : "h-2 w-2"} rounded-full`} style={{ background: item.color ?? COLORS.navy }} />
           <span>{String(item.value ?? item.dataKey ?? "")}</span>
         </div>
       ))}

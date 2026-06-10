@@ -20,6 +20,7 @@ import { Route as AppPatientsRouteImport } from './routes/_app/patients'
 import { Route as AppMedicationsRouteImport } from './routes/_app/medications'
 import { Route as AppLabsRouteImport } from './routes/_app/labs'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppAnalyticsV3RouteImport } from './routes/_app/analytics-v3'
 import { Route as AppAnalyticsV2RouteImport } from './routes/_app/analytics-v2'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppMastersMedicationsRouteImport } from './routes/_app/masters.medications'
@@ -81,6 +82,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAnalyticsV3Route = AppAnalyticsV3RouteImport.update({
+  id: '/analytics-v3',
+  path: '/analytics-v3',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAnalyticsV2Route = AppAnalyticsV2RouteImport.update({
   id: '/analytics-v2',
   path: '/analytics-v2',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analytics': typeof AppAnalyticsRoute
   '/analytics-v2': typeof AppAnalyticsV2Route
+  '/analytics-v3': typeof AppAnalyticsV3Route
   '/dashboard': typeof AppDashboardRoute
   '/labs': typeof AppLabsRoute
   '/medications': typeof AppMedicationsRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analytics': typeof AppAnalyticsRoute
   '/analytics-v2': typeof AppAnalyticsV2Route
+  '/analytics-v3': typeof AppAnalyticsV3Route
   '/dashboard': typeof AppDashboardRoute
   '/labs': typeof AppLabsRoute
   '/medications': typeof AppMedicationsRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/analytics-v2': typeof AppAnalyticsV2Route
+  '/_app/analytics-v3': typeof AppAnalyticsV3Route
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/labs': typeof AppLabsRoute
   '/_app/medications': typeof AppMedicationsRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analytics'
     | '/analytics-v2'
+    | '/analytics-v3'
     | '/dashboard'
     | '/labs'
     | '/medications'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analytics'
     | '/analytics-v2'
+    | '/analytics-v3'
     | '/dashboard'
     | '/labs'
     | '/medications'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_app/analytics'
     | '/_app/analytics-v2'
+    | '/_app/analytics-v3'
     | '/_app/dashboard'
     | '/_app/labs'
     | '/_app/medications'
@@ -310,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/analytics-v3': {
+      id: '/_app/analytics-v3'
+      path: '/analytics-v3'
+      fullPath: '/analytics-v3'
+      preLoaderRoute: typeof AppAnalyticsV3RouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analytics-v2': {
       id: '/_app/analytics-v2'
       path: '/analytics-v2'
@@ -358,6 +377,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppAnalyticsV2Route: typeof AppAnalyticsV2Route
+  AppAnalyticsV3Route: typeof AppAnalyticsV3Route
   AppDashboardRoute: typeof AppDashboardRoute
   AppLabsRoute: typeof AppLabsRoute
   AppMedicationsRoute: typeof AppMedicationsRoute
@@ -376,6 +396,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppAnalyticsV2Route: AppAnalyticsV2Route,
+  AppAnalyticsV3Route: AppAnalyticsV3Route,
   AppDashboardRoute: AppDashboardRoute,
   AppLabsRoute: AppLabsRoute,
   AppMedicationsRoute: AppMedicationsRoute,
