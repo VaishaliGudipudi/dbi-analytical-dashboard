@@ -102,7 +102,6 @@ function AnalyticsV3() {
           onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
           hideSuggested
           compact
-          v3ChartLayout
         />
       ) : null}
 
@@ -117,7 +116,6 @@ function AnalyticsV3() {
           onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
           hideSuggested
           compact
-          v3ChartLayout
         />
       ) : null}
 
@@ -132,7 +130,6 @@ function AnalyticsV3() {
           onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
           hideSuggested
           compact
-          v3ChartLayout
         />
       ) : null}
 
@@ -144,7 +141,6 @@ function AnalyticsV3() {
           days={days}
           activeFilter={activeFilter}
           onClose={() => setDrillMetric(null)}
-          v3ChartLayout
         />
       ) : null}
 
@@ -153,7 +149,6 @@ function AnalyticsV3() {
           title={graphPatientsView.title}
           patients={graphPatientsView.patients}
           onClose={() => setGraphPatientsView(null)}
-          advancedColumns
         />
       ) : null}
     </div>

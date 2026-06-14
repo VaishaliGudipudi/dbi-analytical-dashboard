@@ -411,15 +411,6 @@ export function Operational({
     { name: "Male", value: footfall.reduce((sum, row) => sum + row.Male, 0), color: getEntityColor("Male", COLORS.navy) },
     { name: "Female", value: footfall.reduce((sum, row) => sum + row.Female, 0), color: getEntityColor("Female", COLORS.coral) },
   ];
-  const ageGenderRows = v3ChartLayout
-    ? [
-        { name: "<18 Years", Male: 5, Female: 3 },
-        { name: "18-40 Years", Male: 61, Female: 12 },
-        { name: "40-60 Years", Male: 14, Female: 7 },
-        { name: ">60 Years", Male: 1, Female: 3 },
-        { name: "Unknown", Male: 1, Female: 0 },
-      ]
-    : buildAgeGenderRows(sectionPatients, multiplier);
   const stageData = [
     { name: "Registration", value: scale(11, multiplier), color: COLORS.muted },
     { name: "Triage", value: scale(16, multiplier), color: getEntityColor("Triage", COLORS.amber) },
@@ -605,7 +596,7 @@ export function Operational({
           )}
           <StackedBarCard
             title="Age Group with Gender Distribution"
-            data={ageGenderRows}
+            data={buildAgeGenderRows(sectionPatients, multiplier)}
             xKey="name"
             keys={["Male", "Female"]}
             activeFilter={activeFilter}
@@ -708,23 +699,7 @@ export function Clinical({
   const carePathwayRows =
     v3ChartLayout && carePathwayView === "PINCODE"
       ? scaleNamedRows(lamaPinBase, multiplier).map(row => ({ name: row.name, Total: row.value }))
-      : v3ChartLayout
-        ? [
-            { name: "Generic", Total: 38 },
-            { name: "Stroke", Total: 17 },
-            { name: "Chest Pain", Total: 15 },
-            { name: "Snakebite", Total: 15 },
-            { name: "Polytrauma", Total: 13 },
-            { name: "Aspirated Pneumonia", Total: 8 },
-            { name: "Pneumonia", Total: 6 },
-            { name: "Poisoning", Total: 5 },
-            { name: "Broncho Pneumonia", Total: 5 },
-            { name: "Shortness of Breath", Total: 5 },
-            { name: "Heatstroke", Total: 2 },
-            { name: "Burns", Total: 2 },
-            { name: "Pregnancy Related", Total: 2 },
-          ]
-        : buildPathwayCaseRows(sectionPatients, multiplier);
+      : buildPathwayCaseRows(sectionPatients, multiplier);
 
   return (
     <div className="space-y-5">
@@ -819,7 +794,6 @@ export function Quality({
   onViewPatients,
   hideSuggested = false,
   compact = false,
-  v3ChartLayout = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -830,7 +804,6 @@ export function Quality({
   onViewPatients: (title: string, patients: typeof roster) => void;
   hideSuggested?: boolean;
   compact?: boolean;
-  v3ChartLayout?: boolean;
 }) {
   const [referralView, setReferralView] = useState<ReferralView>("reason");
   const [lamaView, setLamaView] = useState<LamaView>("reason");
@@ -842,25 +815,8 @@ export function Quality({
   const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"]
     .map(id => METRICS.find(m => m.id === id)!)
     .filter(metric => !(hideSuggested && metric.isNew));
-  const referralRows =
-    v3ChartLayout && referralView === "reason"
-      ? [
-          { name: "Uncategorized", value: 2 },
-          { name: "Specific Medical Urgencies", value: 2 },
-          { name: "Need for Advanced or Specialized Care", value: 1 },
-        ]
-      : buildReferralRows(referralView, multiplier);
-  const lamaRows =
-    v3ChartLayout && lamaView === "reason"
-      ? [
-          { name: "Other Reasons", value: 1 },
-          { name: "Seeking Alternative Treatment", value: 1 },
-          { name: "Terminal/Advanced Medical Condition", value: 1 },
-          { name: "Patient Feeling Better After Initial Treatment", value: 1 },
-        ]
-      : lamaView === "reason"
-        ? scaleNamedRows(lamaReasonBase, multiplier)
-        : scaleNamedRows(lamaPinBase, multiplier);
+  const referralRows = buildReferralRows(referralView, multiplier);
+  const lamaRows = lamaView === "reason" ? scaleNamedRows(lamaReasonBase, multiplier) : scaleNamedRows(lamaPinBase, multiplier);
 
   return (
     <div className="space-y-5">
@@ -1710,9 +1666,7 @@ export function MetricDrillPanel({
             <Segmented
               value={trendView}
               options={
-                v3ChartLayout && ["carePlan", "doorThromb", "doorBalloon", "mews"].includes(metric.id)
-                  ? ["week", "month", "quarter", "year"]
-                  : metric.id === "bedOcc"
+                metric.id === "bedOcc"
                   ? ["hour", "shift", "day", "week", "month", "year"]
                   : metric.id === "iaTat" || metric.id === "erTat"
                     ? ["week", "month", "quarter", "year"]

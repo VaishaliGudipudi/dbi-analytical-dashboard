@@ -63,18 +63,7 @@ function AppShell() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="max-w-sm rounded-2xl border border-border bg-card px-6 py-8 text-center shadow-soft-lg">
-          <div className="text-lg font-semibold text-navy">Loading BioInsights</div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Restoring your session and dashboard layout.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!user) return null;
   const nav = user.role === "analytics" ? analyticsNav : user.role === "admin" ? adminNav : clinicalNav;
 
   return (

@@ -30,7 +30,6 @@ import {
   Calendar,
   ChevronRight,
   Clock,
-  ArrowUpDown,
   Eraser,
   FlaskConical,
   HeartPulse,
@@ -65,9 +64,8 @@ export type RangeId = "7d" | "30d" | "90d" | "custom";
 type MetricKind = "rate" | "duration" | "count" | "score";
 type Tone = "navy" | "coral" | "amber" | "green" | "blue";
 type FootfallView = "hour" | "shift" | "day" | "month" | "year";
-type ArrivalView = "week" | "month" | "year";
-type DrillTrendView = "hour" | "shift" | "day" | "week" | "month" | "quarter" | "year";
-type ProtocolView = "week" | "month" | "pathway";
+type MlcView = "day" | "week" | "month";
+type ProtocolView = "day" | "week" | "month" | "pathway";
 type ReferralView = "hour" | "weekday" | "month" | "reason";
 type LamaView = "reason" | "pincode";
 type ComplaintView = "hour" | "shift" | "day";
@@ -107,12 +105,6 @@ const ENTITY_COLORS = {
   Male: COLORS.navy,
   Female: COLORS.coral,
   Other: COLORS.amber,
-  "ER Observation": COLORS.amber,
-  "Outward Referrals": COLORS.coral,
-  Discharges: COLORS.green,
-  "In Patient Ward": COLORS.blue,
-  ICU: COLORS.navy,
-  Cathlab: "var(--urgent-pending)",
   Discharged: COLORS.green,
   Admitted: COLORS.navy,
   Admission: COLORS.navy,
@@ -175,16 +167,6 @@ const dispositionDist = [
   { name: "Referred Out", value: 12, color: getEntityColor("Referred Out", COLORS.coral) },
   { name: "LAMA", value: 6, color: getEntityColor("LAMA", COLORS.amber) },
   { name: "Expired", value: 2, color: getEntityColor("Expired", COLORS.red) },
-];
-
-const dispositionLegendBase = [
-  { name: "ER Observation", color: getEntityColor("ER Observation", COLORS.amber) },
-  { name: "Outward Referrals", color: getEntityColor("Outward Referrals", COLORS.coral) },
-  { name: "Discharges", color: getEntityColor("Discharges", COLORS.green) },
-  { name: "In Patient Ward", color: getEntityColor("In Patient Ward", COLORS.blue) },
-  { name: "ICU", color: getEntityColor("ICU", COLORS.navy) },
-  { name: "Cathlab", color: getEntityColor("Cathlab", "var(--urgent-pending)") },
-  { name: "LAMA", color: getEntityColor("LAMA", COLORS.red) },
 ];
 
 const triageVsDispoBase = [
@@ -368,7 +350,6 @@ export function Operational({
   onViewPatients,
   hideSuggested = false,
   compact = false,
-  v3ChartLayout = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -379,11 +360,9 @@ export function Operational({
   onViewPatients: (title: string, patients: typeof roster) => void;
   hideSuggested?: boolean;
   compact?: boolean;
-  v3ChartLayout?: boolean;
 }) {
   const [footfallView, setFootfallView] = useState<FootfallView>("hour");
-  const [arrivalView, setArrivalView] = useState<ArrivalView>("week");
-  const [protocolView, setProtocolView] = useState<ProtocolView>("week");
+  const [protocolView, setProtocolView] = useState<ProtocolView>("day");
   const multiplier = filterRatio;
   const existingMetricIds = ["iaTat", "erTat", "bedOcc", "ppd", "mlcCases"];
   const suggestedMetricIds = ["avgLos", "dispositionTat", "ppn"];
@@ -391,35 +370,12 @@ export function Operational({
   const suggestedMetrics = hideSuggested ? [] : suggestedMetricIds.map(id => METRICS.find(m => m.id === id)!);
   const footfall = buildFootfall(days, multiplier);
   const footfallRollup = rollupFootfall(footfallView, footfall);
-  const arrivalRows = buildArrivalRows(arrivalView, footfall, multiplier);
   const highestFootfall = Math.max(...footfallRollup.map(row => row.patients));
   const sectionPatients = filterPatients(patients, activeFilter);
   const triageDist = buildTriagePieRows(sectionPatients);
   const disposition = buildDispositionPieRows(sectionPatients);
-  const dispositionLegend = buildDispositionLegendItems(sectionPatients);
   const triageVsDispo = buildTriageDispositionRows(sectionPatients);
   const protocolRows = buildProtocolStackRows(protocolView, multiplier);
-  const protocolSeriesColors = v3ChartLayout
-    ? {
-        Infusions: COLORS.amber,
-        Investigations: COLORS.blue,
-        Medications: COLORS.green,
-        Procedures: COLORS.navy,
-      }
-    : undefined;
-  const genderAdmission = [
-    { name: "Male", value: footfall.reduce((sum, row) => sum + row.Male, 0), color: getEntityColor("Male", COLORS.navy) },
-    { name: "Female", value: footfall.reduce((sum, row) => sum + row.Female, 0), color: getEntityColor("Female", COLORS.coral) },
-  ];
-  const ageGenderRows = v3ChartLayout
-    ? [
-        { name: "<18 Years", Male: 5, Female: 3 },
-        { name: "18-40 Years", Male: 61, Female: 12 },
-        { name: "40-60 Years", Male: 14, Female: 7 },
-        { name: ">60 Years", Male: 1, Female: 3 },
-        { name: "Unknown", Male: 1, Female: 0 },
-      ]
-    : buildAgeGenderRows(sectionPatients, multiplier);
   const stageData = [
     { name: "Registration", value: scale(11, multiplier), color: COLORS.muted },
     { name: "Triage", value: scale(16, multiplier), color: getEntityColor("Triage", COLORS.amber) },
@@ -440,31 +396,15 @@ export function Operational({
 
       <Section title="Triage and Disposition">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-3">
-          {v3ChartLayout ? (
-            <VerticalBarCategoryCard
-              title="Patient Disposition"
-              data={disposition}
-              legendItems={dispositionLegend}
-              legendOrientation="horizontal"
-              activeFilter={activeFilter}
-              onSelect={label => applyFilter({ source: "Disposition", label })}
-              patients={sectionPatients}
-              onViewPatients={onViewPatients}
-              compact={compact}
-              v3ChartLayout={v3ChartLayout}
-            />
-          ) : (
-            <PieAnalyticsCard
-              title="Patient Disposition"
-              data={disposition}
-              activeFilter={activeFilter}
-              onSelect={label => applyFilter({ source: "Disposition", label })}
-              patients={sectionPatients}
-              onViewPatients={onViewPatients}
-              compact={compact}
-              v3ChartLayout={v3ChartLayout}
-            />
-          )}
+          <PieAnalyticsCard
+            title="Patient Disposition"
+            data={disposition}
+            activeFilter={activeFilter}
+            onSelect={label => applyFilter({ source: "Disposition", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+            compact={compact}
+          />
           <PieAnalyticsCard
             title="Triage Categories Distribution"
             data={triageDist}
@@ -473,7 +413,6 @@ export function Operational({
             patients={sectionPatients}
             onViewPatients={onViewPatients}
             compact={compact}
-            v3ChartLayout={v3ChartLayout}
           />
           <StackedBarCard
             title="Triage Levels vs ER Disposition"
@@ -481,12 +420,6 @@ export function Operational({
             xKey="name"
             keys={["Discharged", "Admitted", "Referred", "LAMA", "Expired"]}
             activeFilter={activeFilter}
-            chartHeight={v3ChartLayout ? 230 : undefined}
-            legendItems={v3ChartLayout ? buildTriageDispositionLegendItems(triageVsDispo) : undefined}
-            legendCompact={v3ChartLayout}
-            legendWrapClassName={v3ChartLayout ? "-mt-3" : undefined}
-            xAxisAngle={v3ChartLayout ? -26 : -16}
-            xAxisHeight={v3ChartLayout ? 56 : 64}
             onSelect={(label, payload) => applyFilter({
               source: isDispositionFilterLabel(label) ? "Disposition" : "Triage",
               label: isDispositionFilterLabel(label) ? label : String(payload?.name ?? label),
@@ -494,7 +427,6 @@ export function Operational({
             patients={sectionPatients}
             onViewPatients={onViewPatients}
             compact={compact}
-            v3ChartLayout={v3ChartLayout}
           />
         </div>
       </Section>
@@ -541,24 +473,14 @@ export function Operational({
         <div className={`grid grid-cols-1 items-stretch gap-4 ${hideSuggested ? "" : "xl:grid-cols-2"}`}>
           <StackedBarCard
             title="Ambulance vs Walk In"
-            data={arrivalRows}
+            data={footfall.slice(-10).map(row => ({ name: fmtShort(row.date), Ambulance: row.ambulance, "Walk In": row.walkIn }))}
             xKey="name"
-            keys={["Ambulance", "Walk In", "Other"]}
+            keys={["Ambulance", "Walk In"]}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Arrival Mode", label })}
             patients={sectionPatients}
             onViewPatients={onViewPatients}
             compact={compact}
-            v3ChartLayout={v3ChartLayout}
-            chartHeight={v3ChartLayout ? 320 : undefined}
-            seriesColors={{
-              Ambulance: COLORS.blue,
-              "Walk In": COLORS.navy,
-              Other: COLORS.muted,
-            }}
-            extraAction={
-              <Segmented value={arrivalView} options={["week", "month", "year"]} onChange={setArrivalView} />
-            }
           />
           {hideSuggested ? null : (
             <DonutCard
@@ -577,39 +499,22 @@ export function Operational({
 
       <Section title="Patient Demographics">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-          {v3ChartLayout ? (
-            <DonutCard
-              title="Male vs Female Admission Trends"
-              data={genderAdmission}
-              activeFilter={activeFilter}
-              suggested={false}
-              onSelect={label => applyFilter({ source: "Gender", label })}
-              patients={sectionPatients}
-              onViewPatients={onViewPatients}
-              compact={compact}
-              v3ChartLayout={v3ChartLayout}
-              valueFormatter={value => `${value}`}
-            />
-          ) : (
-            <LineAnalyticsCard
-              title="Male vs Female Admission Trends"
-              data={footfall.map(row => ({ name: fmtShort(row.date), Male: row.Male, Female: row.Female }))}
-              keys={["Male", "Female"]}
-              activeFilter={activeFilter}
-              onSelect={label => applyFilter({ source: "Admission Trend", label })}
-              patients={sectionPatients}
-              onViewPatients={onViewPatients}
-              compact={compact}
-              v3ChartLayout={v3ChartLayout}
-            />
-          )}
+          <LineAnalyticsCard
+            title="Male vs Female Admission Trends"
+            data={footfall.map(row => ({ name: fmtShort(row.date), Male: row.Male, Female: row.Female }))}
+            keys={["Male", "Female"]}
+            activeFilter={activeFilter}
+            onSelect={label => applyFilter({ source: "Admission Trend", label })}
+            patients={sectionPatients}
+            onViewPatients={onViewPatients}
+            compact={compact}
+          />
           <StackedBarCard
             title="Age Group with Gender Distribution"
-            data={ageGenderRows}
+            data={buildAgeGenderRows(sectionPatients, multiplier)}
             xKey="name"
             keys={["Male", "Female"]}
             activeFilter={activeFilter}
-            v3ChartLayout={v3ChartLayout}
             onSelect={(label, payload) => applyFilter({
               source: isGenderFilterLabel(label) ? "Gender" : "Age Group",
               label: isGenderFilterLabel(label) ? label : String(payload?.name ?? label),
@@ -628,7 +533,7 @@ export function Operational({
             title="Protocol Set Ordered"
             action={
               <div className="flex items-center gap-2">
-                <Segmented value={protocolView} options={["week", "month", "pathway"]} onChange={setProtocolView} />
+                <Segmented value={protocolView} options={["day", "week", "month", "pathway"]} onChange={setProtocolView} />
                 <PatientListLink title="Protocol Set Ordered" patients={sectionPatients} onViewPatients={onViewPatients} />
               </div>
             }
@@ -641,26 +546,15 @@ export function Operational({
                 <XAxis type="number" tick={axisTick} label={axisLabel("Orders", "insideBottom", 0)} />
                 <YAxis dataKey="name" type="category" width={94} tick={axisTick} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <RLegend content={<RawLegendContent totals={buildSeriesTotals(protocolSegmentKeys, protocolRows)} />} />
+                <RLegend content={<RawLegendContent />} />
                 {protocolSegmentKeys.map((key, index) => (
                   <Bar
                     key={key}
                     dataKey={key}
                     stackId="protocol"
-                    fill={
-                      protocolSeriesColors?.[key as keyof typeof protocolSeriesColors] ??
-                      getEntityColor(key, getSeriesColor(key, index))
-                    }
+                    fill={getEntityColor(key, getSeriesColor(key, index))}
                     radius={index === protocolSegmentKeys.length - 1 ? HORIZONTAL_BAR_RADIUS : [0, 0, 0, 0]}
                   >
-                    <LabelList
-                      dataKey={key}
-                      position="center"
-                      fill="#fff"
-                      fontSize={10}
-                      fontWeight={700}
-                      formatter={(value: number | string) => (Number(value) > 0 ? value : "")}
-                    />
                     {index === protocolSegmentKeys.length - 1 ? (
                       <LabelList content={renderHorizontalStackTotalLabel(protocolSegmentKeys)} />
                     ) : null}
@@ -685,7 +579,6 @@ export function Clinical({
   onViewPatients,
   hideSuggested = false,
   compact = false,
-  v3ChartLayout = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -696,35 +589,19 @@ export function Clinical({
   onViewPatients: (title: string, patients: typeof roster) => void;
   hideSuggested?: boolean;
   compact?: boolean;
-  v3ChartLayout?: boolean;
 }) {
   const multiplier = filterRatio;
   const [carePathwayView, setCarePathwayView] = useState<"CARE PATHWAY" | "PINCODE">("CARE PATHWAY");
+  const carePathwayToggleEnabled = typeof window !== "undefined" && window.location.pathname.includes("analytics-v3");
   const kpis = ["carePlan", "doorThromb", "doorBalloon", "investigationTat"]
     .map(id => METRICS.find(m => m.id === id)!)
     .filter(metric => !(hideSuggested && metric.isNew));
   const mewsTrend = buildMewsTrend(days, multiplier);
   const sectionPatients = filterPatients(patients, activeFilter);
   const carePathwayRows =
-    v3ChartLayout && carePathwayView === "PINCODE"
+    carePathwayToggleEnabled && carePathwayView === "PINCODE"
       ? scaleNamedRows(lamaPinBase, multiplier).map(row => ({ name: row.name, Total: row.value }))
-      : v3ChartLayout
-        ? [
-            { name: "Generic", Total: 38 },
-            { name: "Stroke", Total: 17 },
-            { name: "Chest Pain", Total: 15 },
-            { name: "Snakebite", Total: 15 },
-            { name: "Polytrauma", Total: 13 },
-            { name: "Aspirated Pneumonia", Total: 8 },
-            { name: "Pneumonia", Total: 6 },
-            { name: "Poisoning", Total: 5 },
-            { name: "Broncho Pneumonia", Total: 5 },
-            { name: "Shortness of Breath", Total: 5 },
-            { name: "Heatstroke", Total: 2 },
-            { name: "Burns", Total: 2 },
-            { name: "Pregnancy Related", Total: 2 },
-          ]
-        : buildPathwayCaseRows(sectionPatients, multiplier);
+      : buildPathwayCaseRows(sectionPatients, multiplier);
 
   return (
     <div className="space-y-5">
@@ -744,7 +621,7 @@ export function Clinical({
             title="ER Cases by Care Pathway"
             active={Boolean(activeFilter)}
             action={
-              v3ChartLayout ? (
+              carePathwayToggleEnabled ? (
                 <div className="flex items-center gap-2">
                   <PatientListLink title="ER Cases by Care Pathway" patients={sectionPatients} onViewPatients={onViewPatients} />
                   <Segmented value={carePathwayView} options={["CARE PATHWAY", "PINCODE"]} onChange={setCarePathwayView} />
@@ -819,7 +696,6 @@ export function Quality({
   onViewPatients,
   hideSuggested = false,
   compact = false,
-  v3ChartLayout = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -830,7 +706,6 @@ export function Quality({
   onViewPatients: (title: string, patients: typeof roster) => void;
   hideSuggested?: boolean;
   compact?: boolean;
-  v3ChartLayout?: boolean;
 }) {
   const [referralView, setReferralView] = useState<ReferralView>("reason");
   const [lamaView, setLamaView] = useState<LamaView>("reason");
@@ -842,25 +717,8 @@ export function Quality({
   const experience = ["satisfaction", "bedCleaning", "bedCleaningTat"]
     .map(id => METRICS.find(m => m.id === id)!)
     .filter(metric => !(hideSuggested && metric.isNew));
-  const referralRows =
-    v3ChartLayout && referralView === "reason"
-      ? [
-          { name: "Uncategorized", value: 2 },
-          { name: "Specific Medical Urgencies", value: 2 },
-          { name: "Need for Advanced or Specialized Care", value: 1 },
-        ]
-      : buildReferralRows(referralView, multiplier);
-  const lamaRows =
-    v3ChartLayout && lamaView === "reason"
-      ? [
-          { name: "Other Reasons", value: 1 },
-          { name: "Seeking Alternative Treatment", value: 1 },
-          { name: "Terminal/Advanced Medical Condition", value: 1 },
-          { name: "Patient Feeling Better After Initial Treatment", value: 1 },
-        ]
-      : lamaView === "reason"
-        ? scaleNamedRows(lamaReasonBase, multiplier)
-        : scaleNamedRows(lamaPinBase, multiplier);
+  const referralRows = buildReferralRows(referralView, multiplier);
+  const lamaRows = lamaView === "reason" ? scaleNamedRows(lamaReasonBase, multiplier) : scaleNamedRows(lamaPinBase, multiplier);
 
   return (
     <div className="space-y-5">
@@ -1140,7 +998,6 @@ function PieAnalyticsCard({
   patients,
   onViewPatients,
   compact = false,
-  v3ChartLayout = false,
 }: {
   title: string;
   data: { name: string; value: number; color: string }[];
@@ -1149,7 +1006,6 @@ function PieAnalyticsCard({
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
   compact?: boolean;
-  v3ChartLayout?: boolean;
 }) {
   return (
     <ChartCard
@@ -1158,98 +1014,34 @@ function PieAnalyticsCard({
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
       compact={compact}
     >
-      <div className={v3ChartLayout ? "grid flex-1 gap-2 md:grid-cols-[minmax(0,1fr)_160px] md:items-center md:gap-2" : ""}>
-        <ResponsiveContainer width="100%" height={compact ? 205 : 230}>
-          <PieChart margin={v3ChartLayout ? { top: 10, right: 10, bottom: 10, left: 10 } : undefined}>
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={v3ChartLayout ? 44 : 48}
-              outerRadius={v3ChartLayout ? 72 : 82}
-              paddingAngle={3}
-              label={({ value }) => value}
-              labelLine={false}
-              onClick={(row: { name: string }) => onSelect(row.name)}
-              animationDuration={450}
-            >
-              {data.map(item => (
-                <Cell
-                  key={item.name}
-                  fill={item.color}
-                  stroke={activeFilter?.label === item.name ? COLORS.navy : "white"}
-                  strokeWidth={activeFilter?.label === item.name ? 4 : 2}
-                  className="cursor-pointer transition-opacity hover:opacity-80"
-                />
-              ))}
-            </Pie>
-            <Tooltip cursor={false} contentStyle={tooltipStyle} />
-          </PieChart>
-        </ResponsiveContainer>
-        <Legend items={data} compact={compact} orientation={v3ChartLayout ? "vertical" : "horizontal"} />
-      </div>
-    </ChartCard>
-  );
-}
-
-function VerticalBarCategoryCard({
-  title,
-  data,
-  legendItems,
-  legendOrientation,
-  activeFilter,
-  onSelect,
-  patients,
-  onViewPatients,
-  compact = false,
-  v3ChartLayout = false,
-}: {
-  title: string;
-  data: { name: string; value: number; color: string }[];
-  legendItems?: { name: string; value: number; color: string }[];
-  legendOrientation?: "horizontal" | "vertical";
-  activeFilter: DashboardFilter | null;
-  onSelect: (label: string) => void;
-  patients: typeof roster;
-  onViewPatients: (title: string, patients: typeof roster) => void;
-  compact?: boolean;
-  v3ChartLayout?: boolean;
-}) {
-  return (
-    <ChartCard
-      title={title}
-      active={Boolean(activeFilter)}
-      action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
-      compact={compact}
-    >
-      <div className={legendOrientation === "horizontal" ? "flex flex-col gap-2" : "grid gap-2 md:grid-cols-[minmax(0,1fr)_160px] md:items-center"}>
-        <ResponsiveContainer width="100%" height={v3ChartLayout ? (compact ? 220 : 234) : (compact ? 245 : 270)}>
-          <BarChart
+      <ResponsiveContainer width="100%" height={compact ? 205 : 230}>
+        <PieChart>
+          <Pie
             data={data}
-            margin={{ top: v3ChartLayout ? 30 : 24, right: 18, left: 8, bottom: legendOrientation === "horizontal" ? 48 : 42 }}
-            barCategoryGap={v3ChartLayout ? "20%" : "18%"}
-            onClick={event => selectFromChart(event, title, (_, payload) => onSelect(String(payload?.name ?? title)))}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={48}
+            outerRadius={82}
+            paddingAngle={3}
+            label={({ value }) => value}
+            labelLine={false}
+            onClick={(row: { name: string }) => onSelect(row.name)}
+            animationDuration={450}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="name" interval={0} tick={{ ...axisTick, angle: -18, textAnchor: "end" }} height={58} />
-            <YAxis tick={axisTick} label={axisLabel("Patients")} />
-            <Tooltip cursor={false} contentStyle={tooltipStyle} />
-            <Bar dataKey="value" radius={BAR_RADIUS}>
-              {data.map(item => (
-                <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={2} />
-              ))}
-              <LabelList
-                dataKey="value"
-                position={v3ChartLayout ? "insideTop" : "top"}
-                fill={v3ChartLayout ? "#fff" : COLORS.navy}
-                fontSize={v3ChartLayout ? 10 : 11}
-                fontWeight={700}
+            {data.map(item => (
+              <Cell
+                key={item.name}
+                fill={item.color}
+                stroke={activeFilter?.label === item.name ? COLORS.navy : "white"}
+                strokeWidth={activeFilter?.label === item.name ? 4 : 2}
+                className="cursor-pointer transition-opacity hover:opacity-80"
               />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-        <Legend items={legendItems ?? data} compact={compact} orientation={legendOrientation ?? (v3ChartLayout ? "vertical" : "horizontal")} />
-      </div>
+            ))}
+          </Pie>
+          <Tooltip cursor={false} contentStyle={tooltipStyle} />
+        </PieChart>
+      </ResponsiveContainer>
+      <Legend items={data} compact={compact} />
     </ChartCard>
   );
 }
@@ -1264,16 +1056,7 @@ function StackedBarCard({
   onSelect,
   patients,
   onViewPatients,
-  extraAction,
-  legendItems,
-  legendCompact = false,
-  legendWrapClassName,
-  xAxisAngle,
-  xAxisHeight,
-  seriesColors,
   compact = false,
-  v3ChartLayout = false,
-  chartHeight,
 }: {
   title: string;
   data: Record<string, string | number>[];
@@ -1284,51 +1067,30 @@ function StackedBarCard({
   onSelect: (label: string, payload?: Record<string, string | number>) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
-  extraAction?: ReactNode;
-  legendItems?: { name: string; value: number; color: string }[];
-  legendCompact?: boolean;
-  legendWrapClassName?: string;
-  xAxisAngle?: number;
-  xAxisHeight?: number;
-  seriesColors?: Record<string, string>;
   compact?: boolean;
-  v3ChartLayout?: boolean;
-  chartHeight?: number;
 }) {
   return (
     <ChartCard
       title={title}
       active={Boolean(activeFilter)}
       suggested={suggested}
-      action={
-        <div className="flex flex-wrap items-center gap-2">
-          {extraAction}
-          <PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />
-        </div>
-      }
+      action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
       compact={compact}
     >
-      <div className="flex flex-1 flex-col">
-        <ResponsiveContainer width="100%" height={chartHeight ?? (compact ? 310 : 330)}>
-          <BarChart
-            data={data}
-            margin={{ top: v3ChartLayout ? 42 : 24, right: 18, left: 8, bottom: xAxisHeight ? xAxisHeight - 6 : 58 }}
-            onClick={event => selectFromChart(event, title, (_, payload, seriesKey) => onSelect(seriesKey ?? String(payload?.name ?? payload?.[xKey] ?? title), payload))}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey={xKey} interval={0} angle={xAxisAngle ?? -16} textAnchor="end" tick={axisTick} height={xAxisHeight ?? 64} />
-            <YAxis tick={axisTick} label={axisLabel("Patients")} />
-            <Tooltip cursor={false} contentStyle={tooltipStyle} />
-            {legendItems ? null : <RLegend content={<RawLegendContent compact={compact} totals={buildSeriesTotals(keys, data)} />} />}
-            {stackBars(keys, data, seriesColors, v3ChartLayout)}
-          </BarChart>
-        </ResponsiveContainer>
-        {legendItems ? (
-          <div className={legendWrapClassName ?? "mt-2"}>
-            <Legend items={legendItems} compact={legendCompact} orientation="horizontal" />
-          </div>
-        ) : null}
-      </div>
+      <ResponsiveContainer width="100%" height={compact ? 310 : 330}>
+        <BarChart
+          data={data}
+          margin={{ top: 24, right: 18, left: 8, bottom: 58 }}
+          onClick={event => selectFromChart(event, title, (_, payload, seriesKey) => onSelect(seriesKey ?? String(payload?.name ?? payload?.[xKey] ?? title), payload))}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <XAxis dataKey={xKey} interval={0} angle={-16} textAnchor="end" tick={axisTick} height={64} />
+          <YAxis tick={axisTick} label={axisLabel("Patients")} />
+          <Tooltip cursor={false} contentStyle={tooltipStyle} />
+          <RLegend content={<RawLegendContent compact={compact} />} />
+          {stackBars(keys, data)}
+        </BarChart>
+      </ResponsiveContainer>
     </ChartCard>
   );
 }
@@ -1343,7 +1105,6 @@ function LineAnalyticsCard({
   patients,
   onViewPatients,
   compact = false,
-  v3ChartLayout = false,
 }: {
   title: string;
   data: Record<string, string | number>[];
@@ -1354,7 +1115,6 @@ function LineAnalyticsCard({
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
   compact?: boolean;
-  v3ChartLayout?: boolean;
 }) {
   return (
     <ChartCard
@@ -1398,19 +1158,15 @@ function DonutCard({
   patients,
   onViewPatients,
   compact = false,
-  v3ChartLayout = false,
-  valueFormatter = (value: number) => `${value}m`,
 }: {
   title: string;
-  data: { name: string; value: number; color: string }[]; 
+  data: { name: string; value: number; color: string }[];
   activeFilter: DashboardFilter | null;
   suggested?: boolean;
   onSelect: (label: string) => void;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
   compact?: boolean;
-  v3ChartLayout?: boolean;
-  valueFormatter?: (value: number) => string;
 }) {
   return (
     <ChartCard
@@ -1420,17 +1176,15 @@ function DonutCard({
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
       compact={compact}
     >
-      <div className={v3ChartLayout ? "grid flex-1 gap-2 md:grid-cols-[minmax(0,1fr)_150px] md:items-center md:gap-2" : ""}>
-        <ResponsiveContainer width="100%" height={compact ? 220 : v3ChartLayout ? 238 : 255}>
-          <PieChart margin={v3ChartLayout ? { top: 10, right: 10, bottom: 10, left: 10 } : undefined}>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={v3ChartLayout ? 46 : 52} outerRadius={v3ChartLayout ? 70 : 86} paddingAngle={4} label={({ value }) => valueFormatter(Number(value))} labelLine={false} onClick={(row: { name: string }) => onSelect(row.name)}>
-              {data.map(item => <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={2} />)}
-            </Pie>
-            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(value: number) => valueFormatter(value)} />
-          </PieChart>
-        </ResponsiveContainer>
-        <Legend items={data} compact={compact} orientation={v3ChartLayout ? "vertical" : "horizontal"} />
-      </div>
+      <ResponsiveContainer width="100%" height={compact ? 220 : 255}>
+        <PieChart>
+          <Pie data={data} dataKey="value" nameKey="name" innerRadius={52} outerRadius={86} paddingAngle={4} label={({ value }) => `${value}m`} labelLine={false} onClick={(row: { name: string }) => onSelect(row.name)}>
+            {data.map(item => <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={2} />)}
+          </Pie>
+          <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(value: number) => `${value} min`} />
+        </PieChart>
+      </ResponsiveContainer>
+      <Legend items={data} compact={compact} />
     </ChartCard>
   );
 }
@@ -1545,14 +1299,6 @@ function BedOccupancyTable({
   compact?: boolean;
 }) {
   const multiplier = filterMultiplier(activeFilter);
-  const visibleWards = [
-    {
-      name: "All",
-      total: wards.reduce((sum, ward) => sum + ward.total, 0),
-      occupied: wards.reduce((sum, ward) => sum + ward.occupied, 0),
-    },
-    ...wards.filter(ward => ward.name === "Emergency" || ward.name === "Observation"),
-  ];
   return (
     <div className={`rounded-[1.5rem] border border-border/80 bg-card shadow-soft ${compact ? "p-3" : "p-4"}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -1575,7 +1321,7 @@ function BedOccupancyTable({
             </tr>
           </thead>
           <tbody>
-            {visibleWards.map(ward => {
+            {wards.map(ward => {
               const occupied = Math.min(ward.total, Math.max(1, Math.round(ward.occupied * multiplier)));
               const pct = Math.round((occupied / ward.total) * 100);
               const tone = pct >= 90 ? COLORS.red : pct >= 75 ? COLORS.amber : COLORS.green;
@@ -1605,7 +1351,6 @@ export function MetricDrillPanel({
   days,
   activeFilter,
   onClose,
-  v3ChartLayout = false,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -1613,84 +1358,25 @@ export function MetricDrillPanel({
   days: string[];
   activeFilter: DashboardFilter | null;
   onClose: () => void;
-  v3ChartLayout?: boolean;
 }) {
-  const [trendView, setTrendView] = useState<DrillTrendView>("week");
-  const [snapshotSortKey, setSnapshotSortKey] = useState<GraphPatientSortKey>("sno");
-  const [snapshotSortDirection, setSnapshotSortDirection] = useState<"asc" | "desc">("asc");
+  const [mlcView, setMlcView] = useState<MlcView>("day");
   const multiplier = filterRatio;
   const providerRows = metric.id === "ppd" ? buildProviderDispositionRows(filterPatients(patients, activeFilter)) : [];
-  const providerLegendItems = metric.id === "ppd" ? buildTriageDispositionLegendItems(filterPatients(patients, activeFilter)) : [];
-  const rawTrendSeries = metric.id === "mews"
-    ? buildMewsTrend(days, multiplier)
-    : metric.id === "bedOcc"
-      ? buildBedOccupancyTrend(trendView, days, multiplier)
-      : metric.id === "avgLos"
-        ? buildSeries(metric, days, multiplier).map(row => ({ date: row.date, Value: Number(row.value.toFixed(1)) }))
-      : metric.id === "mlcCases"
-          ? buildMlcTrend(days, multiplier).map(row => ({ date: row.date, Value: row.value }))
-          : buildSeries(metric, days, multiplier).map(row => ({ date: row.date, Value: metric.kind === "rate" ? Number((row.value * 100).toFixed(1)) : Number(row.value.toFixed(1)) }));
-  const series = metric.id === "mews"
-    ? aggregateTrendRows(rawTrendSeries, trendView, ["Admission", "Discharge"])
-    : metric.id === "bedOcc"
-      ? rawTrendSeries
-      : aggregateTrendRows(rawTrendSeries as Array<{ date: string; Value: number }>, trendView, ["Value"]);
   const losTimeline = metric.id === "avgLos"
-    ? aggregateTrendRows(
-        buildSeries(metric, days, multiplier).map(row => ({ date: row.date, Value: Number(row.value.toFixed(1)) })),
-        trendView,
-        ["Value"],
-      )
+    ? buildSeries(metric, days, multiplier).map(row => ({ name: fmtShort(row.date), Value: Number(row.value.toFixed(1)) }))
     : [];
+  const series = metric.id === "mews"
+    ? buildMewsTrend(days, multiplier).map((row, index) => ({ name: fmtShort(days[index]), Admission: row.admission, Discharge: row.discharge }))
+    : metric.id === "mlcCases"
+      ? buildMlcTrend(days, mlcView, multiplier).map(row => ({ name: row.name ?? fmtShort(row.date), Value: row.value }))
+      : metric.id === "avgLos"
+        ? buildLosByPathway(multiplier)
+        : buildSeries(metric, days, multiplier).map(row => ({ name: fmtShort(row.date), Value: metric.kind === "rate" ? row.value * 100 : row.value }));
   const patientRows = patientsFor(metric.id, patients, activeFilter);
-  const snapshotRows = useMemo(() => {
-    const rows = buildGraphPatientRows(patientRows);
-    return sortGraphPatientRows(rows, snapshotSortKey, snapshotSortDirection);
-  }, [patientRows, snapshotSortDirection, snapshotSortKey]);
-  const snapshotExportRows = useMemo(() => {
-    return snapshotRows.map((row) => ({
-      SNO: row.sno,
-      Patient: row.patient,
-      UMR: row.umr,
-      Triage: row.triage,
-      Pathway: row.pathway,
-      ER: row.er,
-      Physician: row.physician,
-      "ER Checkin date/time": row.checkIn,
-      "ER Disposition date/time": row.disposition,
-      "Encounter closed": row.encounterClosed,
-      Action: "Open chart",
-    }));
-  }, [snapshotRows]);
-  const snapshotSortLabel = graphPatientSortOptions.find((option) => option.value === snapshotSortKey)?.label ?? "SNO";
-  const downloadSnapshotTable = () => {
-    downloadExcelTable(
-      `${metric.id}-patient-snapshot.xls`,
-      [
-        "SNO",
-        "Patient",
-        "UMR",
-        "Triage",
-        "Pathway",
-        "ER",
-        "Physician",
-        "ER Checkin date/time",
-        "ER Disposition date/time",
-        "Encounter closed",
-        "Action",
-      ],
-      snapshotExportRows,
-    );
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
-      <div
-        className={`max-h-[90vh] w-full overflow-auto rounded-[2rem] bg-background shadow-soft-lg ${
-          v3ChartLayout ? "max-w-[96vw]" : "max-w-5xl"
-        }`}
-        onClick={event => event.stopPropagation()}
-      >
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-[2rem] bg-background shadow-soft-lg" onClick={event => event.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
           <div>
             <h3 className="font-bold text-navy">{metric.label}</h3>
@@ -1703,49 +1389,9 @@ export function MetricDrillPanel({
           </button>
         </div>
         <div className="space-y-4 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Trend view
-            </div>
-            <Segmented
-              value={trendView}
-              options={
-                v3ChartLayout && ["carePlan", "doorThromb", "doorBalloon", "mews"].includes(metric.id)
-                  ? ["week", "month", "quarter", "year"]
-                  : metric.id === "bedOcc"
-                  ? ["hour", "shift", "day", "week", "month", "year"]
-                  : metric.id === "iaTat" || metric.id === "erTat"
-                    ? ["week", "month", "quarter", "year"]
-                    : metric.id === "ppd"
-                      ? ["day", "week", "month", "year"]
-                      : ["week", "month", "year"]
-              }
-              onChange={setTrendView}
-            />
-          </div>
-          {metric.id === "mews" && (
-            <div className="text-xs text-muted-foreground">
-              Week groups by day of the week, month groups by calendar month, year groups by year.
-            </div>
-          )}
-          {(metric.id === "iaTat" || metric.id === "erTat") && (
-            <div className="text-xs text-muted-foreground">
-              Quarter groups the trend by Jan-Mar, Apr-Jun, Jul-Sep, and Oct-Dec.
-            </div>
-          )}
-          {metric.id === "ppd" && (
-            <div className="text-xs text-muted-foreground">
-              Day shows the trend at daily granularity for patients per doctor.
-            </div>
-          )}
-          {metric.id === "bedOcc" && (
-            <div className="text-xs text-muted-foreground">
-              Hour shows hourly occupancy, shift shows duty shifts, day shows recent daily occupancy, and week/month/year aggregate the trend.
-            </div>
-          )}
           {metric.id === "mlcCases" && (
             <div className="flex justify-end">
-              <span className="text-xs text-muted-foreground">Grouped by selected period</span>
+              <Segmented value={mlcView} options={["day", "week", "month"]} onChange={setMlcView} />
             </div>
           )}
           {metric.id === "mews" && (
@@ -1775,7 +1421,7 @@ export function MetricDrillPanel({
               >
                 <LineChart data={series} margin={{ top: 26, right: 34, left: 10, bottom: 50 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" interval={0} angle={trendView === "week" ? -18 : -14} textAnchor="end" tick={axisTick} height={58} />
+                  <XAxis dataKey="name" interval="preserveStartEnd" angle={-18} textAnchor="end" tick={axisTick} height={58} />
                   <YAxis tick={axisTick} domain={[0, 6]} label={axisLabel("MEWS Score")} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
@@ -1804,7 +1450,7 @@ export function MetricDrillPanel({
                 {metric.id === "avgLos" ? (
                 <BarChart data={series} margin={{ top: 20, right: 28, left: 8, bottom: 52 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" interval={0} angle={trendView === "week" ? -20 : -14} textAnchor="end" tick={axisTick} height={64} />
+                  <XAxis dataKey="name" interval={0} angle={-20} textAnchor="end" tick={axisTick} height={64} />
                   <YAxis tick={axisTick} label={axisLabel("Hours")} />
                   <Tooltip cursor={false} contentStyle={tooltipStyle} />
                   <Bar dataKey="Value" fill={COLORS.coral} radius={BAR_RADIUS}>
@@ -1814,7 +1460,7 @@ export function MetricDrillPanel({
               ) : (
                 <LineChart data={series} margin={{ top: 26, right: 34, left: 10, bottom: 50 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" interval={0} angle={trendView === "week" ? -18 : -14} textAnchor="end" tick={axisTick} height={58} />
+                  <XAxis dataKey="name" interval="preserveStartEnd" angle={-18} textAnchor="end" tick={axisTick} height={58} />
                   <YAxis tick={axisTick} domain={metric.id === "mews" ? [0, 6] : undefined} label={axisLabel(metric.id === "mews" ? "MEWS Score" : metric.kind === "rate" ? "Percent" : metric.unit ?? "Value")} />
                   <Tooltip cursor={false} contentStyle={tooltipStyle} />
                   <Line type="monotone" dataKey="Value" stroke={COLORS.coral} strokeWidth={2.5} dot={{ r: 3, fill: "white" }} activeDot={{ r: 6, fill: COLORS.amber }} />
@@ -1828,7 +1474,7 @@ export function MetricDrillPanel({
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-bold text-navy">Average LOS Timeline</div>
-                  <div className="text-xs text-muted-foreground">Trend grouped by the selected period</div>
+                  <div className="text-xs text-muted-foreground">Daily trend across the selected date range</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Latest</div>
@@ -1843,7 +1489,7 @@ export function MetricDrillPanel({
               >
                 <LineChart data={losTimeline} margin={{ top: 20, right: 28, left: 10, bottom: 50 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" interval={0} angle={trendView === "week" ? -18 : -14} textAnchor="end" tick={axisTick} height={58} />
+                  <XAxis dataKey="name" interval="preserveStartEnd" angle={-18} textAnchor="end" tick={axisTick} height={58} />
                   <YAxis tick={axisTick} label={axisLabel("Hours")} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
@@ -1884,41 +1530,14 @@ export function MetricDrillPanel({
                   <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
                   <YAxis tick={axisTick} allowDecimals={false} label={axisLabel("Patients")} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="ED Active" stackId="provider" fill="var(--color-ED Active)" radius={BAR_RADIUS}>
-                    <LabelList
-                      dataKey="ED Active"
-                      position="center"
-                      fill="#fff"
-                      fontSize={10}
-                      fontWeight={700}
-                      formatter={(value: number | string) => (Number(value) > 0 ? value : "")}
-                    />
-                  </Bar>
-                  <Bar dataKey="Observation" stackId="provider" fill="var(--color-Observation)" radius={BAR_RADIUS}>
-                    <LabelList
-                      dataKey="Observation"
-                      position="center"
-                      fill="#fff"
-                      fontSize={10}
-                      fontWeight={700}
-                      formatter={(value: number | string) => (Number(value) > 0 ? value : "")}
-                    />
-                  </Bar>
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Bar dataKey="ED Active" stackId="provider" fill="var(--color-ED Active)" radius={BAR_RADIUS} />
+                  <Bar dataKey="Observation" stackId="provider" fill="var(--color-Observation)" radius={BAR_RADIUS} />
                   <Bar dataKey="Discharged" stackId="provider" fill="var(--color-Discharged)" radius={BAR_RADIUS}>
-                    <LabelList
-                      dataKey="Discharged"
-                      position="center"
-                      fill="#fff"
-                      fontSize={10}
-                      fontWeight={700}
-                      formatter={(value: number | string) => (Number(value) > 0 ? value : "")}
-                    />
+                    <LabelList content={renderStackTotalLabel(["ED Active", "Observation", "Discharged"])} />
                   </Bar>
                 </BarChart>
               </ChartContainer>
-              <div className="mt-3 flex justify-center">
-                <Legend items={providerLegendItems} compact={false} orientation="horizontal" />
-              </div>
             </div>
           )}
 
@@ -1928,93 +1547,48 @@ export function MetricDrillPanel({
                 <div className="text-sm font-bold text-navy">Patient Snapshot</div>
                 <div className="text-xs text-muted-foreground">Click through to the patient chart from this graph drilldown.</div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-xs font-semibold text-muted-foreground">{snapshotRows.length} records</div>
-                <button
-                  type="button"
-                  onClick={downloadSnapshotTable}
-                  className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral"
-                >
-                  Export Excel
-                </button>
+              <div className="flex items-center gap-3">
+                <div className="text-xs font-semibold text-muted-foreground">{patientRows.length} records</div>
                 <Link to="/patients" className="rounded-full border border-coral/30 bg-coral/10 px-2.5 py-1 text-[11px] font-semibold text-coral transition-colors hover:bg-coral hover:text-white">
                   Click to view patients
                 </Link>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Sort by</span>
-                <select
-                  value={snapshotSortKey}
-                  onChange={(event) => setSnapshotSortKey(event.target.value as GraphPatientSortKey)}
-                  className="rounded-xl border border-border bg-white px-3 py-2 text-sm text-navy outline-none transition focus:border-coral"
-                >
-                  {graphPatientSortOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setSnapshotSortDirection((current) => (current === "asc" ? "desc" : "asc"))}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-navy transition-colors hover:border-coral hover:text-coral"
-                  title={`Sort ${snapshotSortDirection === "asc" ? "descending" : "ascending"}`}
-                >
-                  <ArrowUpDown className="h-4 w-4" />
-                  {snapshotSortDirection === "asc" ? "Ascending" : "Descending"}
-                </button>
-              </div>
-              <div className="text-xs font-semibold text-muted-foreground">
-                Sorted by {snapshotSortLabel} {snapshotSortDirection === "asc" ? "ascending" : "descending"}
-              </div>
-            </div>
-            <div className="p-5">
-              <div className="overflow-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/60 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2 text-left">SNO</th>
-                      <th className="px-4 py-2 text-left">Patient</th>
-                      <th className="px-4 py-2 text-left">UMR</th>
-                      <th className="px-4 py-2 text-left">Triage</th>
-                      <th className="px-4 py-2 text-left">Pathway</th>
-                      <th className="px-4 py-2 text-left">ER</th>
-                      <th className="px-4 py-2 text-left">Physician</th>
-                      <th className="px-4 py-2 text-left">ER Checkin date/time</th>
-                      <th className="px-4 py-2 text-left">ER Disposition date/time</th>
-                      <th className="px-4 py-2 text-left">Encounter closed</th>
-                      <th className="px-4 py-2 text-right">Action</th>
+            <div className="overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/60 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Patient</th>
+                    <th className="px-4 py-2 text-left">UMR</th>
+                    <th className="px-4 py-2 text-left">Triage</th>
+                    <th className="px-4 py-2 text-left">Pathway</th>
+                    <th className="px-4 py-2 text-left">Physician</th>
+                    <th className="px-4 py-2 text-left">Status</th>
+                    <th className="px-4 py-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {patientRows.map(patient => (
+                    <tr key={patient.key} className="border-t border-border">
+                      <td className="px-4 py-2 font-bold text-navy">
+                        <Link to="/patient/$id/workspace" params={{ id: patient.key }} className="transition-colors hover:text-coral">
+                          {patient.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
+                      <td className="px-4 py-2 text-muted-foreground">Level {patient.triage || "Pending"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{patient.physician}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{patient.status}</td>
+                      <td className="px-4 py-2 text-right">
+                        <Link to="/patient/$id/workspace" params={{ id: patient.key }} className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral">
+                          Open chart
+                        </Link>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {snapshotRows.map(patient => (
-                      <tr key={patient.key} className="border-t border-border">
-                        <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.sno}</td>
-                        <td className="px-4 py-2 font-bold text-navy">
-                          <Link to="/patient/$id/workspace" params={{ id: patient.key }} className="transition-colors hover:text-coral">
-                            {patient.name}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
-                        <td className="px-4 py-2 text-muted-foreground">Level {patient.triage || "Pending"}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.er}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.physician}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.checkIn}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.disposition}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.encounterClosed}</td>
-                        <td className="px-4 py-2 text-right">
-                          <Link to="/patient/$id/workspace" params={{ id: patient.key }} className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral">
-                            Open chart
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -2027,81 +1601,21 @@ export function GraphPatientsPanel({
   title,
   patients,
   onClose,
-  advancedColumns = false,
 }: {
   title: string;
   patients: typeof roster;
   onClose: () => void;
-  advancedColumns?: boolean;
 }) {
-  const [sortKey, setSortKey] = useState<GraphPatientSortKey>("sno");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const rows = useMemo(() => {
-    const baseRows = buildGraphPatientRows(patients);
-    return advancedColumns ? sortGraphPatientRows(baseRows, sortKey, sortDirection) : baseRows;
-  }, [advancedColumns, patients, sortDirection, sortKey]);
-  const exportRows = useMemo(
-    () =>
-      rows.map((row) => ({
-        SNO: row.sno,
-        Patient: row.patient,
-        UMR: row.umr,
-        Triage: row.triage,
-        Pathway: row.pathway,
-        ER: row.er,
-        Physician: row.physician,
-        "ER Checkin date/time": row.checkIn,
-        "ER Disposition date/time": row.disposition,
-        "Encounter closed": row.encounterClosed,
-        Action: "Open chart",
-      })),
-    [rows],
-  );
-  const sortLabel = graphPatientSortOptions.find((option) => option.value === sortKey)?.label ?? "SNO";
-  const exportTable = () => {
-    downloadExcelTable(
-      `${title.toLowerCase().replace(/\s+/g, "-")}-show-data.xls`,
-      [
-        "SNO",
-        "Patient",
-        "UMR",
-        "Triage",
-        "Pathway",
-        "ER",
-        "Physician",
-        "ER Checkin date/time",
-        "ER Disposition date/time",
-        "Encounter closed",
-        "Action",
-      ],
-      exportRows,
-    );
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
-      <div
-        className={`max-h-[88vh] w-full overflow-auto rounded-[2rem] bg-background shadow-soft-lg ${
-          advancedColumns ? "max-w-[98vw]" : "max-w-5xl"
-        }`}
-        onClick={event => event.stopPropagation()}
-      >
+      <div className="max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[2rem] bg-background shadow-soft-lg" onClick={event => event.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
           <div>
             <h3 className="font-bold text-navy">{title}</h3>
             <p className="text-xs font-medium text-muted-foreground">Patient list linked from this graph</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-muted-foreground">{rows.length} records</div>
-            {advancedColumns ? (
-              <button
-                type="button"
-                onClick={exportTable}
-                className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral"
-              >
-                Export Excel
-              </button>
-            ) : null}
+            <div className="text-xs font-semibold text-muted-foreground">{patients.length} records</div>
             <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-secondary">
               <X className="h-4 w-4" />
             </button>
@@ -2110,115 +1624,40 @@ export function GraphPatientsPanel({
 
         <div className="overflow-auto p-5">
           <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-card shadow-soft">
-            {advancedColumns ? (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-5 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Sort by</span>
-                    <select
-                      value={sortKey}
-                      onChange={(event) => setSortKey(event.target.value as GraphPatientSortKey)}
-                      className="rounded-xl border border-border bg-white px-3 py-2 text-sm text-navy outline-none transition focus:border-coral"
-                    >
-                      {graphPatientSortOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}
-                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-navy transition-colors hover:border-coral hover:text-coral"
-                      title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
-                      {sortDirection === "asc" ? "Ascending" : "Descending"}
-                    </button>
-                  </div>
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    Sorted by {sortLabel} {sortDirection === "asc" ? "ascending" : "descending"}
-                  </div>
-                </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/60 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2 text-left">SNO</th>
-                      <th className="px-4 py-2 text-left">Patient</th>
-                      <th className="px-4 py-2 text-left">UMR</th>
-                      <th className="px-4 py-2 text-left">Triage</th>
-                      <th className="px-4 py-2 text-left">Pathway</th>
-                      <th className="px-4 py-2 text-left">ER</th>
-                      <th className="px-4 py-2 text-left">Physician</th>
-                      <th className="px-4 py-2 text-left">ER Checkin date/time</th>
-                      <th className="px-4 py-2 text-left">ER Disposition date/time</th>
-                      <th className="px-4 py-2 text-left">Encounter closed</th>
-                      <th className="px-4 py-2 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((patient) => (
-                      <tr key={patient.patientId} className="border-t border-border">
-                        <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.sno}</td>
-                        <td className="px-4 py-2 font-bold text-navy">
-                          <Link to="/patient/$id/workspace" params={{ id: patient.patientId }} className="transition-colors hover:text-coral">
-                            {patient.patient}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.triage}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.er}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.physician}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.checkIn}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.disposition}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{patient.encounterClosed}</td>
-                        <td className="px-4 py-2 text-right">
-                          <Link to="/patient/$id/workspace" params={{ id: patient.patientId }} className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral">
-                            Open chart
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/60 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Patient</th>
-                    <th className="px-4 py-2 text-left">UMR</th>
-                    <th className="px-4 py-2 text-left">Triage</th>
-                    <th className="px-4 py-2 text-left">Bed</th>
-                    <th className="px-4 py-2 text-left">Pathway</th>
-                    <th className="px-4 py-2 text-left">Status</th>
-                    <th className="px-4 py-2 text-right">Action</th>
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/60 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left">Patient</th>
+                  <th className="px-4 py-2 text-left">UMR</th>
+                  <th className="px-4 py-2 text-left">Triage</th>
+                  <th className="px-4 py-2 text-left">Bed</th>
+                  <th className="px-4 py-2 text-left">Pathway</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patients.map(patient => (
+                  <tr key={patient.id} className="border-t border-border">
+                    <td className="px-4 py-2 font-bold text-navy">
+                      <Link to="/patient/$id/workspace" params={{ id: patient.id }} className="transition-colors hover:text-coral">
+                        {patient.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
+                    <td className="px-4 py-2 text-muted-foreground">Level {patient.triage || "Pending"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{patient.bed}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{patient.status}</td>
+                    <td className="px-4 py-2 text-right">
+                      <Link to="/patient/$id/workspace" params={{ id: patient.id }} className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral">
+                        Open chart
+                      </Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {patients.map(patient => (
-                    <tr key={patient.id} className="border-t border-border">
-                      <td className="px-4 py-2 font-bold text-navy">
-                        <Link to="/patient/$id/workspace" params={{ id: patient.id }} className="transition-colors hover:text-coral">
-                          {patient.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
-                      <td className="px-4 py-2 text-muted-foreground">Level {patient.triage || "Pending"}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{patient.bed}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{patient.status}</td>
-                      <td className="px-4 py-2 text-right">
-                        <Link to="/patient/$id/workspace" params={{ id: patient.id }} className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-navy transition-colors hover:border-coral hover:text-coral">
-                          Open chart
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -2226,249 +1665,16 @@ export function GraphPatientsPanel({
   );
 }
 
-type GraphPatientSortKey =
-  | "sno"
-  | "patient"
-  | "umr"
-  | "triage"
-  | "pathway"
-  | "er"
-  | "physician"
-  | "checkIn"
-  | "disposition"
-  | "encounterClosed";
-
-type GraphPatientRow = {
-  patientId: string;
-  sno: number;
-  patient: string;
-  umr: string;
-  triage: string;
-  pathway: string;
-  er: string;
-  physician: string;
-  checkIn: string;
-  disposition: string;
-  encounterClosed: string;
-  sortValues: Record<GraphPatientSortKey, string | number>;
-};
-
-const graphPatientSortOptions: Array<{ value: GraphPatientSortKey; label: string }> = [
-  { value: "sno", label: "SNO" },
-  { value: "patient", label: "Patient" },
-  { value: "umr", label: "UMR" },
-  { value: "triage", label: "Triage" },
-  { value: "pathway", label: "Pathway" },
-  { value: "er", label: "ER" },
-  { value: "physician", label: "Physician" },
-  { value: "checkIn", label: "ER Checkin" },
-  { value: "disposition", label: "ER Disposition" },
-  { value: "encounterClosed", label: "Encounter Closed" },
-];
-
-function buildGraphPatientRows(patients: typeof roster): GraphPatientRow[] {
-  return patients.map((patient, index) => {
-    const checkInTime = formatEncounterDateTime(patient.checkIn);
-    const dispositionTime = patient.status === "discharged" ? deriveDispositionDateTime(patient.checkIn) : "Open";
-    const checkInSortValue = getEncounterTimestamp(patient.checkIn);
-    const dispositionSortValue =
-      patient.status === "discharged" && checkInSortValue !== null ? checkInSortValue + 4 * 60 * 60 * 1000 : Number.POSITIVE_INFINITY;
-
-    return {
-      patientId: patient.id,
-      sno: index + 1,
-      patient: patient.name,
-      umr: patient.umr,
-      triage: formatTriage(patient.triage),
-      pathway: patient.pathway,
-      er: patient.bed,
-      physician: patient.physician,
-      checkIn: checkInTime,
-      disposition: dispositionTime,
-      encounterClosed: patient.status === "discharged" ? "Yes" : "No",
-      sortValues: {
-        sno: index + 1,
-        patient: patient.name.toLowerCase(),
-        umr: patient.umr.toLowerCase(),
-        triage: patient.triage,
-        pathway: patient.pathway.toLowerCase(),
-        er: patient.bed.toLowerCase(),
-        physician: patient.physician.toLowerCase(),
-        checkIn: checkInSortValue ?? patient.checkIn.toLowerCase(),
-        disposition: dispositionSortValue,
-        encounterClosed: patient.status === "discharged" ? 1 : 0,
-      },
-    };
-  });
-}
-
-function sortGraphPatientRows(rows: GraphPatientRow[], sortKey: GraphPatientSortKey, direction: "asc" | "desc") {
-  const factor = direction === "asc" ? 1 : -1;
-  return rows
-    .slice()
-    .sort((left, right) => {
-      const a = left.sortValues[sortKey];
-      const b = right.sortValues[sortKey];
-
-      if (typeof a === "number" && typeof b === "number") {
-        return (a - b) * factor;
-      }
-
-      return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" }) * factor;
-    })
-    .map((row, index) => ({ ...row, sno: index + 1 }));
-}
-
-function formatTriage(triage: (typeof roster)[number]["triage"]) {
-  return triage === 0 ? "Pending" : `Level ${triage}`;
-}
-
-function formatEncounterDateTime(value: string) {
-  const parsed = parseEncounterDate(value);
-  if (!parsed) {
-    return value;
-  }
-
-  return parsed.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function deriveDispositionDateTime(checkIn: string) {
-  const parsed = parseEncounterDate(checkIn);
-  if (!parsed) {
-    return "Open";
-  }
-
-  const closedAt = new Date(parsed);
-  closedAt.setHours(closedAt.getHours() + 4);
-  return closedAt.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function parseEncounterDate(value: string) {
-  const trimmed = value.trim();
-  const timeMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
-  if (timeMatch) {
-    const parsed = new Date();
-    parsed.setHours(Number(timeMatch[1]), Number(timeMatch[2]), 0, 0);
-    return parsed;
-  }
-
-  const yesterdayMatch = trimmed.match(/^Yesterday\s+(\d{1,2}):(\d{2})$/i);
-  if (yesterdayMatch) {
-    const parsed = new Date();
-    parsed.setDate(parsed.getDate() - 1);
-    parsed.setHours(Number(yesterdayMatch[1]), Number(yesterdayMatch[2]), 0, 0);
-    return parsed;
-  }
-
-  const daysAgoMatch = trimmed.match(/^(\d+)\s+days?\s+ago$/i);
-  if (daysAgoMatch) {
-    const parsed = new Date();
-    parsed.setDate(parsed.getDate() - Number(daysAgoMatch[1]));
-    parsed.setHours(10, 0, 0, 0);
-    return parsed;
-  }
-
-  const isoParsed = new Date(trimmed);
-  if (!Number.isNaN(isoParsed.getTime())) {
-    return isoParsed;
-  }
-
-  return null;
-}
-
-function getEncounterTimestamp(value: string) {
-  const parsed = parseEncounterDate(value);
-  return parsed ? parsed.getTime() : null;
-}
-
-function downloadExcelTable(filename: string, headers: string[], rows: Record<string, string | number>[]) {
-  if (!rows.length) {
-    return;
-  }
-
-  const escapeHtml = (value: string | number) =>
-    String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-
-  const htmlRows = rows
-    .map(
-      (row) =>
-        `<tr>${headers
-          .map((header) => `<td>${escapeHtml(row[header] ?? "")}</td>`)
-          .join("")}</tr>`,
-    )
-    .join("");
-
-  const table = `
-    <table>
-      <thead>
-        <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
-      </thead>
-      <tbody>${htmlRows}</tbody>
-    </table>
-  `;
-
-  const html = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          body { font-family: Arial, sans-serif; color: #223E5B; }
-          table { border-collapse: collapse; width: 100%; }
-          th, td { border: 1px solid #D8C8B4; padding: 8px 10px; text-align: left; }
-          th { background: #F2E7D3; font-weight: 700; }
-        </style>
-      </head>
-      <body>${table}</body>
-    </html>
-  `;
-
-  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function stackBars(keys: string[], data: Record<string, string | number>[], seriesColors?: Record<string, string>, v3ChartLayout = false) {
+function stackBars(keys: string[], data: Record<string, string | number>[]) {
   return keys.map((key, index) => (
-    <Bar key={key} dataKey={key} stackId="stack" fill={seriesColors?.[key] ?? getSeriesColor(key, index)}>
+    <Bar key={key} dataKey={key} stackId="stack" fill={getSeriesColor(key, index)}>
       {data.map((row, rowIndex) => (
         <Cell
           key={`${key}-${rowIndex}`}
           radius={isTopOfStack(keys, key, row) ? BAR_RADIUS : [0, 0, 0, 0]}
         />
       ))}
-      {v3ChartLayout ? (
-        <LabelList
-          dataKey={key}
-          position="center"
-          fill="#fff"
-          fontSize={10}
-          fontWeight={700}
-          formatter={(value: number | string) => (Number(value) > 0 ? value : "")}
-        />
-      ) : index === keys.length - 1 ? (
-        <LabelList content={renderStackTotalLabel(keys)} />
-      ) : null}
+      {index === keys.length - 1 ? <LabelList content={renderStackTotalLabel(keys)} /> : null}
     </Bar>
   ));
 }
@@ -2476,23 +1682,21 @@ function stackBars(keys: string[], data: Record<string, string | number>[], seri
 function Legend({
   items,
   compact = false,
-  orientation = "horizontal",
 }: {
   items: { name: string; value: number; color: string }[];
   compact?: boolean;
-  orientation?: "horizontal" | "vertical";
 }) {
   return (
-    <div className={`${orientation === "vertical" ? "flex flex-col items-center" : "flex flex-wrap justify-center"} ${compact ? "mt-1.5 gap-1" : "mt-2 gap-1.5"}`}>
+    <div className={`flex flex-wrap ${compact ? "mt-1.5 gap-1" : "mt-2 gap-1.5"}`}>
       {items.map(item => (
         <button
           key={item.name}
           className={`inline-flex items-center rounded-full border border-border/70 bg-secondary/35 font-semibold text-navy transition-colors hover:bg-secondary/60 ${
-            compact ? "gap-1 px-1.5 py-0.5 text-[10px]" : "gap-1.5 px-2 py-0.5 text-[11px]"
-          } ${orientation === "vertical" ? "grid w-full max-w-[172px] grid-cols-[14px_minmax(0,1fr)_auto] gap-x-2 justify-items-center px-2" : ""}`}
+            compact ? "gap-1 px-1.5 py-0.5 text-[9px]" : "gap-1.5 px-2 py-0.5 text-[10px]"
+          }`}
         >
           <span className={`${compact ? "h-1.5 w-1.5" : "h-2 w-2"} rounded-full`} style={{ background: item.color }} />
-          <span className={`${orientation === "vertical" ? "justify-self-center text-center" : ""}`}>{item.name}</span>
+          <span>{item.name}</span>
           <span className="font-bold tabular-nums text-navy">{item.value}</span>
         </button>
       ))}
@@ -2500,10 +1704,9 @@ function Legend({
   );
 }
 
-function RawLegendContent(props: ComponentProps<typeof RLegend> & { compact?: boolean; totals?: Record<string, number> }) {
+function RawLegendContent(props: ComponentProps<typeof RLegend> & { compact?: boolean }) {
   const payload = props.payload?.filter(item => item.type !== "none") ?? [];
   const compact = props.compact ?? false;
-  const totals = props.totals ?? {};
 
   if (!payload.length) {
     return null;
@@ -2520,7 +1723,6 @@ function RawLegendContent(props: ComponentProps<typeof RLegend> & { compact?: bo
         >
           <span className={`${compact ? "h-1.5 w-1.5" : "h-2 w-2"} rounded-full`} style={{ background: item.color ?? COLORS.navy }} />
           <span>{String(item.value ?? item.dataKey ?? "")}</span>
-          <span className="font-bold tabular-nums text-navy">{totals[String(item.dataKey ?? item.value ?? "")] ?? ""}</span>
         </div>
       ))}
     </div>
@@ -2563,9 +1765,9 @@ function renderStackTotalLabel(keys: string[]) {
     return (
       <text
         x={x + width / 2}
-        y={y - 10}
+        y={y - 8}
         fill={COLORS.navy}
-        fontSize={12}
+        fontSize={11}
         fontWeight={700}
         textAnchor="middle"
       >
@@ -2643,95 +1845,6 @@ function buildSeries(metric: Metric, days: string[], multiplier: number) {
   });
 }
 
-function aggregateTrendRows<T extends Record<string, string | number>>(
-  rows: Array<T & { date: string }>,
-  view: DrillTrendView,
-  valueKeys: string[],
-) {
-  if (view === "day") {
-    return rows.map(row => ({
-      name: fmtShort(row.date),
-      ...Object.fromEntries(valueKeys.map(valueKey => [valueKey, Number(row[valueKey] ?? 0)])),
-    }));
-  }
-
-  const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
-  const bucketMap = new Map<string, { name: string; order: number; values: Record<string, number> }>();
-
-  rows.forEach(row => {
-    const parsed = new Date(row.date);
-    if (Number.isNaN(parsed.getTime())) {
-      return;
-    }
-
-    const key = getTrendBucketKey(parsed, view);
-    const existing = bucketMap.get(key) ?? {
-      name: getTrendBucketLabel(parsed, view),
-      order: getTrendBucketOrder(parsed, view),
-      values: Object.fromEntries(valueKeys.map(valueKey => [valueKey, 0])) as Record<string, number>,
-    };
-
-    valueKeys.forEach(valueKey => {
-      existing.values[valueKey] = (existing.values[valueKey] ?? 0) + Number(row[valueKey] ?? 0);
-    });
-
-    bucketMap.set(key, existing);
-  });
-
-  return Array.from(bucketMap.values())
-    .sort((left, right) => left.order - right.order)
-    .map(bucket => ({ name: bucket.name, ...bucket.values }));
-}
-
-function getTrendBucketKey(date: Date, view: DrillTrendView) {
-  if (view === "week") {
-    return `week-${((date.getDay() + 6) % 7)}`;
-  }
-
-  if (view === "month") {
-    return `month-${date.getFullYear()}-${date.getMonth()}`;
-  }
-
-  if (view === "quarter") {
-    return `quarter-${date.getFullYear()}-${Math.floor(date.getMonth() / 3)}`;
-  }
-
-  return `year-${date.getFullYear()}`;
-}
-
-function getTrendBucketLabel(date: Date, view: DrillTrendView) {
-  if (view === "week") {
-    return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][ (date.getDay() + 6) % 7 ];
-  }
-
-  if (view === "month") {
-    return date.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
-  }
-
-  if (view === "quarter") {
-    const quarter = Math.floor(date.getMonth() / 3) + 1;
-    return `Q${quarter} ${String(date.getFullYear()).slice(-2)}`;
-  }
-
-  return String(date.getFullYear());
-}
-
-function getTrendBucketOrder(date: Date, view: DrillTrendView) {
-  if (view === "week") {
-    return (date.getDay() + 6) % 7;
-  }
-
-  if (view === "month") {
-    return date.getFullYear() * 12 + date.getMonth();
-  }
-
-  if (view === "quarter") {
-    return date.getFullYear() * 4 + Math.floor(date.getMonth() / 3);
-  }
-
-  return date.getFullYear();
-}
-
 function buildFootfall(days: string[], multiplier: number) {
   return days.map(date => {
     const total = scale(92 + seedRand(`ff-${date}`) * 72, multiplier);
@@ -2746,65 +1859,6 @@ function buildFootfall(days: string[], multiplier: number) {
       Female: total - male,
     };
   });
-}
-
-function buildArrivalRows(view: ArrivalView, footfall: ReturnType<typeof buildFootfall>, multiplier: number) {
-  if (view === "week") {
-    const source = footfall.slice(-28);
-    return chunkRows(source, 7).map((chunk, index) => {
-      const total = chunk.reduce((sum, row) => sum + row.patients, 0);
-      const split = splitArrivalCounts(total, `week-${index}`);
-      return { name: `Week ${index + 1}`, ...split };
-    });
-  }
-
-  if (view === "month") {
-    const source = footfall.slice(-90);
-    const months = new Map<string, { Ambulance: number; "Walk In": number; Other: number }>();
-    source.forEach(row => {
-      const month = new Date(row.date).toLocaleDateString(undefined, { month: "short" });
-      const bucket = months.get(month) ?? { Ambulance: 0, "Walk In": 0, Other: 0 };
-      const split = splitArrivalCounts(row.patients, `month-${row.date}`);
-      bucket.Ambulance += split.Ambulance;
-      bucket["Walk In"] += split["Walk In"];
-      bucket.Other += split.Other;
-      months.set(month, bucket);
-    });
-    return Array.from(months.entries()).map(([name, value]) => ({ name, ...value }));
-  }
-
-  if (view === "year") {
-    return ["2022", "2023", "2024", "2025", "2026"].map((year, index) => {
-      const total = scale(1120 + seedRand(`arrival-${year}`) * 780, multiplier);
-      return { name: year, ...splitArrivalCounts(total, `arrival-${index}`) };
-    });
-  }
-
-  return footfall.slice(-10).map(row => ({
-    name: fmtShort(row.date),
-    ...splitArrivalCounts(row.patients, `day-${row.date}`),
-  }));
-}
-
-function splitArrivalCounts(total: number, seed: string) {
-  const safeTotal = Math.max(1, total);
-  const other = Math.max(1, Math.round(safeTotal * (0.05 + seedRand(`${seed}-other`) * 0.04)));
-  const ambulance = Math.max(1, Math.round(safeTotal * (0.22 + seedRand(`${seed}-amb`) * 0.1)));
-  const walkIn = Math.max(1, safeTotal - ambulance - other);
-  const adjustedOther = Math.max(1, safeTotal - ambulance - walkIn);
-  return {
-    Ambulance: ambulance,
-    "Walk In": walkIn,
-    Other: adjustedOther,
-  };
-}
-
-function chunkRows<T>(rows: T[], size: number) {
-  const chunks: T[][] = [];
-  for (let i = 0; i < rows.length; i += size) {
-    chunks.push(rows.slice(i, i + size));
-  }
-  return chunks;
 }
 
 function rollupFootfall(view: FootfallView, footfall: ReturnType<typeof buildFootfall>) {
@@ -2830,61 +1884,21 @@ function rollupFootfall(view: FootfallView, footfall: ReturnType<typeof buildFoo
   return footfall.slice(-14).map(row => ({ name: fmtShort(row.date), patients: row.patients }));
 }
 
-function buildMlcTrend(days: string[], multiplier: number) {
-  return days.map(date => ({ date, value: scale(2 + seedRand(`mlc-${date}`) * 8, multiplier) }));
+function buildMlcTrend(days: string[], view: MlcView, multiplier: number) {
+  if (view === "week") {
+    return Array.from({ length: 6 }, (_, index) => ({ name: `Week ${index + 1}`, date: days[Math.max(0, days.length - 1 - index * 7)] ?? days[0], value: scale(26 + seedRand(`mlcw-${index}`) * 18, multiplier) })).reverse();
+  }
+  if (view === "month") {
+    return ["Jan", "Feb", "Mar", "Apr", "May", "Jun"].map((name, index) => ({ name, date: days[0], value: scale(88 + seedRand(`mlcm-${index}`) * 38, multiplier) }));
+  }
+  return days.slice(-14).map(date => ({ date, value: scale(2 + seedRand(`mlc-${date}`) * 8, multiplier) }));
 }
 
 function buildMewsTrend(days: string[], multiplier: number) {
   return days.map(date => ({
-    date,
     admission: Number((4.4 + seedRand(`adm-${date}`) * 1.1 * multiplier).toFixed(1)),
     discharge: Number((1.5 + seedRand(`dis-${date}`) * 0.7 * Math.max(0.7, multiplier)).toFixed(1)),
   }));
-}
-
-function buildBedOccupancyTrend(view: DrillTrendView, days: string[], multiplier: number) {
-  const baseDaily = buildSeries({ id: "bedOcc", label: "Bed Occupancy", group: "operational", kind: "rate", baseline: 0.84, target: "<= 85%", unit: "%", tone: "blue", Icon: Bed, fmt: v => `${Math.round(v * 100)}%` }, days, multiplier)
-    .map(row => ({ date: row.date, Value: Number((row.value * 100).toFixed(1)) }));
-
-  if (view === "hour") {
-    return Array.from({ length: 24 }, (_, hour) => ({
-      name: `${String(hour).padStart(2, "0")}:00`,
-      Value: Number((74 + seedRand(`bed-hour-${hour}`) * 16 + (hour >= 8 && hour <= 20 ? 4 : 0)).toFixed(1)),
-    }));
-  }
-
-  if (view === "shift") {
-    return [
-      { name: "Morning", Value: Number((76 + seedRand("bed-shift-0") * 10).toFixed(1)) },
-      { name: "Evening", Value: Number((84 + seedRand("bed-shift-1") * 10).toFixed(1)) },
-      { name: "Night", Value: Number((70 + seedRand("bed-shift-2") * 8).toFixed(1)) },
-    ];
-  }
-
-  if (view === "day") {
-    return baseDaily.slice(-7).map(row => ({ name: fmtShort(row.date), Value: row.Value }));
-  }
-
-  if (view === "week") {
-    return aggregateTrendRows(baseDaily, view, ["Value"]);
-  }
-
-  if (view === "month") {
-    return aggregateTrendRows(baseDaily, view, ["Value"]);
-  }
-
-  return aggregateTrendRows(baseDaily, view, ["Value"]);
-}
-
-function buildTrendMetricRows(metricId: string, days: string[], multiplier: number, view: DrillTrendView) {
-  const rawRows = buildSeries({ id: metricId, label: metricId, group: "operational", kind: "duration", baseline: metricId === "iaTat" ? 7.4 : 142, target: "", unit: "", tone: "navy", Icon: Clock, fmt: v => String(v) }, days, multiplier)
-    .map(row => ({ date: row.date, Value: Number(row.value.toFixed(1)) }));
-
-  if (view === "day") {
-    return rawRows.slice(-7).map(row => ({ name: fmtShort(row.date), Value: row.Value }));
-  }
-
-  return aggregateTrendRows(rawRows, view, ["Value"]);
 }
 
 function buildDailyCases(days: string[], multiplier: number) {
@@ -2948,43 +1962,12 @@ function filterPatients<T extends { triage: number; status: string }>(patients: 
 }
 
 function buildDispositionPieRows<T extends { status: string }>(patients: T[]) {
-  const counts = new Map<string, number>(dispositionLegendBase.map(item => [item.name, 0]));
+  const counts = new Map<string, number>(dispositionDist.map(item => [item.name, 0]));
   patients.forEach(patient => {
     const label = patientDispositionLabel(patient as (typeof roster)[number]);
     counts.set(label, (counts.get(label) ?? 0) + 1);
   });
-  return dispositionLegendBase.map(item => ({ ...item, value: counts.get(item.name) ?? 0 }));
-}
-
-function buildSeriesTotals(keys: readonly string[], rows: Record<string, string | number>[]) {
-  return keys.reduce((acc, key) => {
-    acc[key] = rows.reduce((sum, row) => sum + Number(row[key] ?? 0), 0);
-    return acc;
-  }, {} as Record<string, number>);
-}
-
-function buildTriageDispositionLegendItems(rows: Record<string, string | number>[]) {
-  const totals = buildSeriesTotals(["Discharged", "Admitted", "Referred", "LAMA", "Expired"], rows);
-  const admitted = totals.Admitted ?? 0;
-  const observation = Math.max(0, Math.round(admitted * 0.34));
-  const ward = Math.max(0, Math.round(admitted * 0.31));
-  const icu = Math.max(0, Math.round(admitted * 0.19));
-  const cathlab = Math.max(0, admitted - observation - ward - icu);
-
-  return [
-    { name: "ER Observation", value: observation, color: getEntityColor("ER Observation", COLORS.amber) },
-    { name: "Outward referrals", value: totals.Referred ?? 0, color: getEntityColor("Referred Out", COLORS.coral) },
-    { name: "Discharges", value: totals.Discharged ?? 0, color: getEntityColor("Discharged", COLORS.green) },
-    { name: "In patient ward", value: ward, color: getEntityColor("In Patient Ward", COLORS.blue) },
-    { name: "ICU", value: icu, color: getEntityColor("ICU", COLORS.navy) },
-    { name: "Cathlab", value: cathlab, color: getEntityColor("Cathlab", "var(--urgent-pending)") },
-    { name: "LAMA", value: totals.LAMA ?? 0, color: getEntityColor("LAMA", COLORS.red) },
-    { name: "Other", value: totals.Expired ?? 0, color: COLORS.muted },
-  ];
-}
-
-function buildDispositionLegendItems<T extends { status: string }>(patients: T[]) {
-  return buildDispositionPieRows(patients);
+  return dispositionDist.map(item => ({ ...item, value: counts.get(item.name) ?? 0 }));
 }
 
 function buildTriagePieRows<T extends { triage: number }>(patients: T[]) {
@@ -3155,15 +2138,6 @@ function buildProviderDispositionRows<T extends { physician: string; status: str
   return Array.from(rows.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 }
 
-function buildProviderDispositionLegendItems(rows: { "ED Active": number; Observation: number; Discharged: number }[]) {
-  const totals = buildSeriesTotals(["ED Active", "Observation", "Discharged"], rows);
-  return [
-    { name: "ED Active", value: totals["ED Active"] ?? 0, color: getEntityColor("ED Active", COLORS.blue) },
-    { name: "Observation", value: totals.Observation ?? 0, color: getEntityColor("Observation", COLORS.amber) },
-    { name: "Discharged", value: totals.Discharged ?? 0, color: getEntityColor("Discharged", COLORS.green) },
-  ];
-}
-
 function patientsFor(metricId: string, patients: typeof roster, activeFilter: DashboardFilter | null) {
   const filteredRoster = patients.filter(patient => matchesPatientFilter(patient, activeFilter));
   const multiplier = filterImpactMultiplier(filteredRoster.length, patients.length);
@@ -3179,14 +2153,8 @@ function patientsFor(metricId: string, patients: typeof roster, activeFilter: Da
 function dispositionSeriesKey(label: string) {
   return ({
     Discharged: "Discharged",
-    Discharges: "Discharged",
     Admitted: "Admitted",
-    "ER Observation": "Admitted",
-    "In Patient Ward": "Admitted",
-    ICU: "Admitted",
-    Cathlab: "Admitted",
     "Referred Out": "Referred",
-    "Outward Referrals": "Referred",
     LAMA: "LAMA",
     Expired: "Expired",
   } as Record<string, string>)[label] ?? label;
@@ -3227,35 +2195,9 @@ function matchesPatientFilter(patient: (typeof roster)[number], activeFilter: Da
 }
 
 function patientDispositionLabel(patient: (typeof roster)[number]) {
-  const bed = patient.bed.toLowerCase();
-  const pathway = patient.pathway.toLowerCase();
-  const department = patient.department.toLowerCase();
-
-  if (patient.status === "discharged" || pathway.includes("discharge")) return "Discharges";
-  if (pathway.includes("lama") || bed.includes("lama")) return "LAMA";
-  if (
-    pathway.includes("referral") ||
-    pathway.includes("referred") ||
-    pathway.includes("transfer") ||
-    department.includes("referral")
-  ) {
-    return "Outward Referrals";
-  }
-  if (
-    bed.includes("cath") ||
-    pathway.includes("cath") ||
-    pathway.includes("stemi") ||
-    department.includes("card")
-  ) {
-    return "Cathlab";
-  }
-  if (bed.includes("icu") || pathway.includes("icu") || department.includes("icu")) {
-    return "ICU";
-  }
-  if (patient.status === "obs" || bed.includes("obs") || pathway.includes("observation")) {
-    return "ER Observation";
-  }
-  return "In Patient Ward";
+  if (patient.status === "discharged") return "Discharged";
+  if (patient.status === "obs") return "Admitted";
+  return "Admitted";
 }
 
 function triageLabelFor(triage: number) {
@@ -3332,7 +2274,7 @@ function normalizeSeriesFilterLabel(label: string) {
 }
 
 function isDispositionFilterLabel(label: string) {
-  return ["Discharged", "Admitted", "Referred", "Referred Out", "LAMA", "Expired", "Discharges", "ER Observation", "Outward Referrals", "In Patient Ward", "ICU", "Cathlab"].includes(label);
+  return ["Discharged", "Admitted", "Referred", "Referred Out", "LAMA", "Expired"].includes(label);
 }
 
 function isGenderFilterLabel(label: string) {

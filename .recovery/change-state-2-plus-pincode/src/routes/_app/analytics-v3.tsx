@@ -132,7 +132,6 @@ function AnalyticsV3() {
           onViewPatients={(title, patientRows) => setGraphPatientsView({ title, patients: patientRows })}
           hideSuggested
           compact
-          v3ChartLayout
         />
       ) : null}
 

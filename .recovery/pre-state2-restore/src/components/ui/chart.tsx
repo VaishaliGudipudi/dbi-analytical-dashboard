@@ -275,17 +275,17 @@ const ChartLegendContent = React.forwardRef<
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/35 px-2 py-0.5 text-[10px] font-semibold text-navy [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
               )}
-              >
-                {itemConfig?.icon && !hideIcon ? (
-                  <itemConfig.icon />
-                ) : (
-                  <div
+            >
+              {itemConfig?.icon && !hideIcon ? (
+                <itemConfig.icon />
+              ) : (
+                <div
                   className="h-2 w-2 shrink-0 rounded-full"
                   style={{
                     backgroundColor: item.color,
                   }}
-                  />
-                )}
+                />
+              )}
               {itemConfig?.label}
             </div>
           );
