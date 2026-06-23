@@ -71,6 +71,7 @@ type ProtocolView = "week" | "month" | "pathway";
 type ReferralView = "hour" | "weekday" | "month" | "reason";
 type LamaView = "reason" | "pincode";
 type ComplaintView = "hour" | "shift" | "day";
+type AiRecommendationTrendView = "date" | "week" | "month";
 
 export interface Metric {
   id: string;
@@ -369,6 +370,7 @@ export function Operational({
   hideSuggested = false,
   compact = false,
   v3ChartLayout = false,
+  graphTitleSuffix,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -380,6 +382,7 @@ export function Operational({
   hideSuggested?: boolean;
   compact?: boolean;
   v3ChartLayout?: boolean;
+  graphTitleSuffix?: string;
 }) {
   const [footfallView, setFootfallView] = useState<FootfallView>("hour");
   const [arrivalView, setArrivalView] = useState<ArrivalView>("week");
@@ -443,6 +446,7 @@ export function Operational({
           {v3ChartLayout ? (
             <VerticalBarCategoryCard
               title="Patient Disposition"
+              titleSuffix={graphTitleSuffix}
               data={disposition}
               legendItems={dispositionLegend}
               legendOrientation="horizontal"
@@ -456,6 +460,7 @@ export function Operational({
           ) : (
             <PieAnalyticsCard
               title="Patient Disposition"
+              titleSuffix={graphTitleSuffix}
               data={disposition}
               activeFilter={activeFilter}
               onSelect={label => applyFilter({ source: "Disposition", label })}
@@ -467,6 +472,7 @@ export function Operational({
           )}
           <PieAnalyticsCard
             title="Triage Categories Distribution"
+            titleSuffix={graphTitleSuffix}
             data={triageDist}
             activeFilter={activeFilter}
             onSelect={label => applyFilter({ source: "Triage", label })}
@@ -477,6 +483,7 @@ export function Operational({
           />
           <StackedBarCard
             title="Triage Levels vs ER Disposition"
+            titleSuffix={graphTitleSuffix}
             data={triageVsDispo}
             xKey="name"
             keys={["Discharged", "Admitted", "Referred", "LAMA", "Expired"]}
@@ -503,6 +510,7 @@ export function Operational({
         <div className="grid grid-cols-1 items-stretch gap-4">
           <ChartCard
             title="Footfall"
+            titleSuffix={graphTitleSuffix}
             action={
               <div className="flex items-center gap-2">
                 <PatientListLink title="Footfall" patients={sectionPatients} onViewPatients={onViewPatients} />
@@ -541,6 +549,7 @@ export function Operational({
         <div className={`grid grid-cols-1 items-stretch gap-4 ${hideSuggested ? "" : "xl:grid-cols-2"}`}>
           <StackedBarCard
             title="Ambulance vs Walk In"
+            titleSuffix={graphTitleSuffix}
             data={arrivalRows}
             xKey="name"
             keys={["Ambulance", "Walk In", "Other"]}
@@ -563,6 +572,7 @@ export function Operational({
           {hideSuggested ? null : (
             <DonutCard
               title="Time Taken Breakdown by Stage"
+              titleSuffix={graphTitleSuffix}
               data={stageData}
               activeFilter={activeFilter}
               suggested
@@ -580,6 +590,7 @@ export function Operational({
           {v3ChartLayout ? (
             <DonutCard
               title="Male vs Female Admission Trends"
+              titleSuffix={graphTitleSuffix}
               data={genderAdmission}
               activeFilter={activeFilter}
               suggested={false}
@@ -593,6 +604,7 @@ export function Operational({
           ) : (
             <LineAnalyticsCard
               title="Male vs Female Admission Trends"
+              titleSuffix={graphTitleSuffix}
               data={footfall.map(row => ({ name: fmtShort(row.date), Male: row.Male, Female: row.Female }))}
               keys={["Male", "Female"]}
               activeFilter={activeFilter}
@@ -623,9 +635,10 @@ export function Operational({
 
       <Section title="Beds and Protocol Orders">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <BedOccupancyTable activeFilter={activeFilter} patients={sectionPatients} onViewPatients={onViewPatients} compact={compact} />
+          <BedOccupancyTable titleSuffix={graphTitleSuffix} activeFilter={activeFilter} patients={sectionPatients} onViewPatients={onViewPatients} compact={compact} />
           <ChartCard
             title="Protocol Set Ordered"
+            titleSuffix={graphTitleSuffix}
             action={
               <div className="flex items-center gap-2">
                 <Segmented value={protocolView} options={["week", "month", "pathway"]} onChange={setProtocolView} />
@@ -686,6 +699,7 @@ export function Clinical({
   hideSuggested = false,
   compact = false,
   v3ChartLayout = false,
+  graphTitleSuffix,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -697,6 +711,7 @@ export function Clinical({
   hideSuggested?: boolean;
   compact?: boolean;
   v3ChartLayout?: boolean;
+  graphTitleSuffix?: string;
 }) {
   const multiplier = filterRatio;
   const [carePathwayView, setCarePathwayView] = useState<"CARE PATHWAY" | "PINCODE">("CARE PATHWAY");
@@ -725,6 +740,12 @@ export function Clinical({
             { name: "Pregnancy Related", Total: 2 },
           ]
         : buildPathwayCaseRows(sectionPatients, multiplier);
+  const carePathwayTotal = carePathwayRows.reduce((sum, row) => sum + Number(row.Total ?? row.value ?? 0), 0);
+  const carePathwayLegendItems = carePathwayRows.map(row => ({
+    name: String(row.name),
+    value: Number(row.Total ?? row.value ?? 0),
+    color: COLORS.navy,
+  }));
 
   return (
     <div className="space-y-5">
@@ -742,6 +763,7 @@ export function Clinical({
         <div className={`grid grid-cols-1 items-stretch gap-4 ${hideSuggested ? "" : "xl:grid-cols-2"}`}>
           <ChartCard
             title="ER Cases by Care Pathway"
+            titleSuffix={`Total: ${carePathwayTotal}`}
             active={Boolean(activeFilter)}
             action={
               v3ChartLayout ? (
@@ -755,21 +777,25 @@ export function Clinical({
             }
             compact={compact}
           >
-            <ResponsiveContainer width="100%" height={270}>
-              <BarChart data={carePathwayRows} margin={{ top: 20, right: 24, left: 8, bottom: 52 }} onClick={event => selectFromChart(event, "Care Pathway", applyFilter)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" interval={0} angle={-22} textAnchor="end" tick={axisTick} height={66} />
-                <YAxis tick={axisTick} label={axisLabel("Cases")} />
-                <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="Total" fill={COLORS.navy} radius={BAR_RADIUS}>
-                  <LabelList dataKey="Total" position="top" fill={COLORS.navy} fontSize={11} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="flex flex-col gap-2">
+              <ResponsiveContainer width="100%" height={270}>
+                <BarChart data={carePathwayRows} margin={{ top: 20, right: 24, left: 8, bottom: 52 }} onClick={event => selectFromChart(event, "Care Pathway", applyFilter)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" interval={0} angle={-22} textAnchor="end" tick={axisTick} height={66} />
+                  <YAxis tick={axisTick} label={axisLabel("Cases")} />
+                  <Tooltip cursor={false} contentStyle={tooltipStyle} />
+                  <Bar dataKey="Total" fill={COLORS.navy} radius={BAR_RADIUS}>
+                    <LabelList dataKey="Total" position="top" fill={COLORS.navy} fontSize={11} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              {v3ChartLayout ? <Legend items={carePathwayLegendItems} compact={compact} orientation="horizontal" /> : null}
+            </div>
           </ChartCard>
           {hideSuggested ? null : (
             <LineAnalyticsCard
               title="ER Cases by Day"
+              titleSuffix={graphTitleSuffix}
               data={buildDailyCases(days, multiplier).map(row => ({ name: fmtShort(row.date), Cases: row.cases }))}
               keys={["Cases"]}
             activeFilter={activeFilter}
@@ -787,6 +813,7 @@ export function Clinical({
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
           <RankList
             title="Top 15 Medications Prescribed"
+            titleSuffix={graphTitleSuffix}
             Icon={Pill}
             items={scaleRankItems(medicationsBase, multiplier)}
             onSelect={label => applyFilter({ source: "Medication", label })}
@@ -796,6 +823,7 @@ export function Clinical({
           />
           <RankList
             title="Top 15 Investigations Ordered"
+            titleSuffix={graphTitleSuffix}
             Icon={FlaskConical}
             items={scaleRankItems(investigationsBase, multiplier)}
             onSelect={label => applyFilter({ source: "Investigation", label })}
@@ -820,6 +848,7 @@ export function Quality({
   hideSuggested = false,
   compact = false,
   v3ChartLayout = false,
+  graphTitleSuffix,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -831,9 +860,10 @@ export function Quality({
   hideSuggested?: boolean;
   compact?: boolean;
   v3ChartLayout?: boolean;
+  graphTitleSuffix?: string;
 }) {
   const [referralView, setReferralView] = useState<ReferralView>("reason");
-  const [lamaView, setLamaView] = useState<LamaView>("reason");
+  const [aiTrendView, setAiTrendView] = useState<AiRecommendationTrendView>("date");
   const multiplier = filterRatio;
   const sectionPatients = filterPatients(patients, activeFilter);
   const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"]
@@ -850,17 +880,35 @@ export function Quality({
           { name: "Need for Advanced or Specialized Care", value: 1 },
         ]
       : buildReferralRows(referralView, multiplier);
-  const lamaRows =
-    v3ChartLayout && lamaView === "reason"
-      ? [
-          { name: "Other Reasons", value: 1 },
-          { name: "Seeking Alternative Treatment", value: 1 },
-          { name: "Terminal/Advanced Medical Condition", value: 1 },
-          { name: "Patient Feeling Better After Initial Treatment", value: 1 },
-        ]
-      : lamaView === "reason"
-        ? scaleNamedRows(lamaReasonBase, multiplier)
-        : scaleNamedRows(lamaPinBase, multiplier);
+  const referralLegendItems = referralRows.map((row, index) => ({
+    name: String(row.name),
+    value: Number(row.value ?? 0),
+    color: getSeriesColor(String(row.name), index),
+  }));
+  const aiRecommendationDailyRows = useMemo(() => buildAiRecommendationDailyRows(days, multiplier), [days, multiplier]);
+  const aiRecommendationTotals = useMemo(() => {
+    return aiRecommendationDailyRows.reduce(
+      (acc, row) => ({
+        accepted: acc.accepted + row.accepted,
+        overridden: acc.overridden + row.overridden,
+        total: acc.total + row.total,
+      }),
+      { accepted: 0, overridden: 0, total: 0 },
+    );
+  }, [aiRecommendationDailyRows]);
+  const aiRecommendationDonutData = [
+    { name: "Accepted", value: aiRecommendationTotals.accepted, color: COLORS.green },
+    { name: "Overridden", value: aiRecommendationTotals.overridden, color: COLORS.coral },
+  ];
+  const aiRecommendationLegendItems = aiRecommendationDonutData.map(item => ({
+    name: item.name,
+    value: item.value,
+    color: item.color,
+  }));
+  const aiRecommendationTrendRows = useMemo(
+    () => buildAiRecommendationTrendRows(aiRecommendationDailyRows, aiTrendView),
+    [aiRecommendationDailyRows, aiTrendView],
+  );
 
   return (
     <div className="space-y-5">
@@ -882,10 +930,84 @@ export function Quality({
         </Section>
       ) : null}
 
+      {v3ChartLayout ? (
+        <Section title="AI Recommendation Accuracy">
+          <div className="space-y-4">
+            <ChartCard
+              title="AI Recommendation Acceptance Trend"
+              titleSuffix={`Total: ${aiRecommendationTotals.total}`}
+              compact={compact}
+            >
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Trend view</div>
+                <Segmented value={aiTrendView} options={["date", "week", "month"]} onChange={setAiTrendView} />
+              </div>
+              <ResponsiveContainer width="100%" height={compact ? 220 : 250}>
+                <LineChart data={aiRecommendationTrendRows} margin={{ top: 20, right: 24, left: 10, bottom: 50 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" interval={0} angle={aiTrendView === "date" ? -18 : -14} textAnchor="end" tick={axisTick} height={58} />
+                  <YAxis
+                    tick={axisTick}
+                    domain={[0, 100]}
+                    label={axisLabel("Acceptance Rate %")}
+                    tickFormatter={(value: number) => `${value}%`}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: COLORS.coral, strokeDasharray: "3 3" }}
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) {
+                        return null;
+                      }
+
+                      const point = payload[0]?.payload as {
+                        accepted?: number;
+                        overridden?: number;
+                        acceptanceRate?: number;
+                        total?: number;
+                      };
+                      const accepted = Number(point?.accepted ?? 0);
+                      const overridden = Number(point?.overridden ?? 0);
+                      const total = Number(point?.total ?? accepted + overridden);
+                      const acceptanceRate = Number(point?.acceptanceRate ?? 0);
+                      const acceptedPct = total ? ((accepted / total) * 100).toFixed(1) : "0.0";
+                      const overriddenPct = total ? ((overridden / total) * 100).toFixed(1) : "0.0";
+
+                      return (
+                        <div className="rounded-2xl border border-border/70 bg-background/95 px-3 py-2 shadow-soft">
+                          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{String(label ?? "")}</div>
+                          <div className="mt-1 space-y-0.5 text-xs text-navy">
+                            <div>
+                              Accepted: <span className="font-bold">{accepted}</span> ({acceptedPct}%)
+                            </div>
+                            <div>
+                              Overridden: <span className="font-bold">{overridden}</span> ({overriddenPct}%)
+                            </div>
+                            <div className="font-bold text-coral">Acceptance Rate: {acceptanceRate.toFixed(1)}%</div>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="acceptanceRate"
+                    stroke={COLORS.coral}
+                    strokeWidth={3}
+                    dot={{ r: 3.5, fill: "white", stroke: COLORS.coral, strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: COLORS.green, stroke: "white", strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+        </Section>
+      ) : null}
+
       <Section title="Referrals and LAMA">
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
           <ChartCard
             title="Outward Referral Analysis"
+            titleSuffix={graphTitleSuffix}
             action={
               <div className="flex items-center gap-2">
                 <PatientListLink title="Outward Referral Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
@@ -901,35 +1023,67 @@ export function Quality({
                 <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
                 <YAxis tick={axisTick} label={axisLabel("Cases")} />
                 <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.navy} radius={BAR_RADIUS}>
+                <Bar dataKey="value" radius={BAR_RADIUS}>
+                  {referralRows.map((entry, index) => (
+                    <Cell key={`referral-${String(entry.name)}-${index}`} fill={getSeriesColor(String(entry.name), index)} />
+                  ))}
                   <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            <div className="mt-2 flex justify-center">
+              <Legend items={referralLegendItems} compact={compact} orientation="horizontal" />
+            </div>
           </ChartCard>
 
           <ChartCard
-            title="LAMA Analysis"
-            action={
-              <div className="flex items-center gap-2">
-                <PatientListLink title="LAMA Analysis" patients={sectionPatients} onViewPatients={onViewPatients} />
-                <Segmented value={lamaView} options={["reason", "pincode"]} onChange={setLamaView} />
-              </div>
-            }
-            active={Boolean(activeFilter)}
+            title="AI Recommendation Acceptance Distribution"
+            titleSuffix={`Total: ${aiRecommendationTotals.total}`}
             compact={compact}
           >
-            <ResponsiveContainer width="100%" height={245}>
-              <BarChart data={lamaRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }} onClick={event => selectFromChart(event, "LAMA", applyFilter)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
-                <YAxis tick={axisTick} label={axisLabel("Cases")} />
-                <Tooltip cursor={false} contentStyle={tooltipStyle} />
-                <Bar dataKey="value" fill={COLORS.coral} radius={BAR_RADIUS}>
-                  <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_184px] lg:items-center">
+              <ResponsiveContainer width="100%" height={compact ? 220 : 246}>
+                <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                  <Pie
+                    data={aiRecommendationDonutData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={compact ? 44 : 52}
+                    outerRadius={compact ? 78 : 88}
+                    paddingAngle={4}
+                    label={({ value }) => value}
+                    labelLine={false}
+                  >
+                    {aiRecommendationDonutData.map(item => (
+                      <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={2} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    cursor={false}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) {
+                        return null;
+                      }
+
+                      const point = payload[0] as { name?: string; value?: number };
+                      const value = Number(point.value ?? 0);
+                      const percentage = aiRecommendationTotals.total
+                        ? ((value / aiRecommendationTotals.total) * 100).toFixed(1)
+                        : "0.0";
+
+                      return (
+                        <div className="rounded-2xl border border-border/70 bg-background/95 px-3 py-2 shadow-soft">
+                          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{String(point.name ?? "")}</div>
+                          <div className="mt-1 text-sm font-bold text-navy">{value} recommendations</div>
+                          <div className="text-xs text-muted-foreground">{percentage}% of total</div>
+                        </div>
+                      );
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <Legend items={aiRecommendationLegendItems} compact={compact} orientation="vertical" />
+            </div>
           </ChartCard>
         </div>
       </Section>
@@ -1082,6 +1236,7 @@ function MewsCard({
 
 function ChartCard({
   title,
+  titleSuffix,
   action,
   active,
   suggested,
@@ -1089,6 +1244,7 @@ function ChartCard({
   compact = false,
 }: {
   title: string;
+  titleSuffix?: string;
   action?: ReactNode;
   active?: boolean;
   suggested?: boolean;
@@ -1104,7 +1260,10 @@ function ChartCard({
       } ${active ? "ring-2 ring-coral/10" : ""}`}
     >
       <div className="mb-2 flex min-h-8 flex-wrap items-start justify-between gap-2">
-        <h3 className="text-sm font-bold text-navy">{title}</h3>
+        <h3 className="text-sm font-bold text-navy">
+          {title}
+          {titleSuffix ? <span className="ml-2 text-[10px] font-semibold text-muted-foreground">{titleSuffix}</span> : null}
+        </h3>
         {action}
       </div>
       <div className={`flex flex-1 flex-col ${compact ? "justify-start" : "justify-center"}`}>{children}</div>
@@ -1134,6 +1293,7 @@ function PatientListLink({
 
 function PieAnalyticsCard({
   title,
+  titleSuffix,
   data,
   activeFilter,
   onSelect,
@@ -1143,7 +1303,8 @@ function PieAnalyticsCard({
   v3ChartLayout = false,
 }: {
   title: string;
-  data: { name: string; value: number; color: string }[];
+  titleSuffix?: string;
+  data: { name: string; value: number; color: string }[]; 
   activeFilter: DashboardFilter | null;
   onSelect: (label: string) => void;
   patients: typeof roster;
@@ -1154,6 +1315,7 @@ function PieAnalyticsCard({
   return (
     <ChartCard
       title={title}
+      titleSuffix={titleSuffix}
       active={Boolean(activeFilter)}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
       compact={compact}
@@ -1194,6 +1356,7 @@ function PieAnalyticsCard({
 
 function VerticalBarCategoryCard({
   title,
+  titleSuffix,
   data,
   legendItems,
   legendOrientation,
@@ -1205,7 +1368,8 @@ function VerticalBarCategoryCard({
   v3ChartLayout = false,
 }: {
   title: string;
-  data: { name: string; value: number; color: string }[];
+  titleSuffix?: string;
+  data: { name: string; value: number; color: string }[]; 
   legendItems?: { name: string; value: number; color: string }[];
   legendOrientation?: "horizontal" | "vertical";
   activeFilter: DashboardFilter | null;
@@ -1218,6 +1382,7 @@ function VerticalBarCategoryCard({
   return (
     <ChartCard
       title={title}
+      titleSuffix={titleSuffix}
       active={Boolean(activeFilter)}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
       compact={compact}
@@ -1256,6 +1421,7 @@ function VerticalBarCategoryCard({
 
 function StackedBarCard({
   title,
+  titleSuffix,
   data,
   xKey,
   keys,
@@ -1276,6 +1442,7 @@ function StackedBarCard({
   chartHeight,
 }: {
   title: string;
+  titleSuffix?: string;
   data: Record<string, string | number>[];
   xKey: string;
   keys: string[];
@@ -1298,6 +1465,7 @@ function StackedBarCard({
   return (
     <ChartCard
       title={title}
+      titleSuffix={titleSuffix}
       active={Boolean(activeFilter)}
       suggested={suggested}
       action={
@@ -1335,6 +1503,7 @@ function StackedBarCard({
 
 function LineAnalyticsCard({
   title,
+  titleSuffix,
   data,
   keys,
   activeFilter,
@@ -1346,6 +1515,7 @@ function LineAnalyticsCard({
   v3ChartLayout = false,
 }: {
   title: string;
+  titleSuffix?: string;
   data: Record<string, string | number>[];
   keys: string[];
   activeFilter: DashboardFilter | null;
@@ -1359,6 +1529,7 @@ function LineAnalyticsCard({
   return (
     <ChartCard
       title={title}
+      titleSuffix={titleSuffix}
       active={Boolean(activeFilter)}
       suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
@@ -1391,6 +1562,7 @@ function LineAnalyticsCard({
 
 function DonutCard({
   title,
+  titleSuffix,
   data,
   activeFilter,
   suggested,
@@ -1402,6 +1574,7 @@ function DonutCard({
   valueFormatter = (value: number) => `${value}m`,
 }: {
   title: string;
+  titleSuffix?: string;
   data: { name: string; value: number; color: string }[]; 
   activeFilter: DashboardFilter | null;
   suggested?: boolean;
@@ -1415,6 +1588,7 @@ function DonutCard({
   return (
     <ChartCard
       title={title}
+      titleSuffix={titleSuffix}
       active={Boolean(activeFilter)}
       suggested={suggested}
       action={<PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />}
@@ -1490,6 +1664,7 @@ function Segmented<T extends string>({ value, options, onChange }: { value: T; o
 
 function RankList({
   title,
+  titleSuffix,
   Icon,
   items,
   onSelect,
@@ -1498,6 +1673,7 @@ function RankList({
   compact = false,
 }: {
   title: string;
+  titleSuffix?: string;
   Icon: typeof Pill;
   items: { name: string; value: number }[];
   onSelect: (label: string) => void;
@@ -1512,6 +1688,7 @@ function RankList({
         <h3 className="inline-flex items-center gap-2 text-sm font-bold text-navy">
           <Icon className="h-4 w-4 text-coral" />
           {title}
+          {titleSuffix ? <span className="text-[10px] font-semibold text-muted-foreground">{titleSuffix}</span> : null}
         </h3>
         <PatientListLink title={title} patients={patients} onViewPatients={onViewPatients} />
       </div>
@@ -1538,11 +1715,13 @@ function BedOccupancyTable({
   patients,
   onViewPatients,
   compact = false,
+  titleSuffix,
 }: {
   activeFilter: DashboardFilter | null;
   patients: typeof roster;
   onViewPatients: (title: string, patients: typeof roster) => void;
   compact?: boolean;
+  titleSuffix?: string;
 }) {
   const multiplier = filterMultiplier(activeFilter);
   const visibleWards = [
@@ -1557,7 +1736,10 @@ function BedOccupancyTable({
     <div className={`rounded-[1.5rem] border border-border/80 bg-card shadow-soft ${compact ? "p-3" : "p-4"}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-navy">Bed Occupancy by Area</h3>
+          <h3 className="text-sm font-bold text-navy">
+            Bed Occupancy by Area
+            {titleSuffix ? <span className="ml-2 text-[10px] font-semibold text-muted-foreground">{titleSuffix}</span> : null}
+          </h3>
           <p className="text-xs text-muted-foreground">Capacity view restored as a table</p>
         </div>
         <div className="flex items-center gap-2">
@@ -1606,6 +1788,7 @@ export function MetricDrillPanel({
   activeFilter,
   onClose,
   v3ChartLayout = false,
+  graphTitleSuffix,
 }: {
   patients: typeof roster;
   filterRatio: number;
@@ -1614,11 +1797,32 @@ export function MetricDrillPanel({
   activeFilter: DashboardFilter | null;
   onClose: () => void;
   v3ChartLayout?: boolean;
+  graphTitleSuffix?: string;
 }) {
   const [trendView, setTrendView] = useState<DrillTrendView>("week");
+  const [lamaView, setLamaView] = useState<LamaView>("reason");
   const [snapshotSortKey, setSnapshotSortKey] = useState<GraphPatientSortKey>("sno");
   const [snapshotSortDirection, setSnapshotSortDirection] = useState<"asc" | "desc">("asc");
+  const extendedColumns = v3ChartLayout;
   const multiplier = filterRatio;
+  const lamaRows =
+    metric.id === "lamaRate"
+      ? v3ChartLayout && lamaView === "reason"
+        ? [
+            { name: "Other Reasons", value: 1 },
+            { name: "Seeking Alternative Treatment", value: 1 },
+            { name: "Terminal/Advanced Medical Condition", value: 1 },
+            { name: "Patient Feeling Better After Initial Treatment", value: 1 },
+          ]
+        : lamaView === "reason"
+          ? scaleNamedRows(lamaReasonBase, multiplier)
+          : scaleNamedRows(lamaPinBase, multiplier)
+      : [];
+  const lamaLegendItems = lamaRows.map((row, index) => ({
+    name: String(row.name),
+    value: Number(row.value ?? 0),
+    color: getSeriesColor(String(row.name), index),
+  }));
   const providerRows = metric.id === "ppd" ? buildProviderDispositionRows(filterPatients(patients, activeFilter)) : [];
   const providerLegendItems = metric.id === "ppd" ? buildTriageDispositionLegendItems(filterPatients(patients, activeFilter)) : [];
   const rawTrendSeries = metric.id === "mews"
@@ -1651,8 +1855,11 @@ export function MetricDrillPanel({
     return snapshotRows.map((row) => ({
       SNO: row.sno,
       Patient: row.patient,
+      Gender: row.gender,
+      Age: row.age,
       UMR: row.umr,
       Triage: row.triage,
+      "Final disposition": row.finalDisposition,
       Pathway: row.pathway,
       ER: row.er,
       Physician: row.physician,
@@ -1666,19 +1873,36 @@ export function MetricDrillPanel({
   const downloadSnapshotTable = () => {
     downloadExcelTable(
       `${metric.id}-patient-snapshot.xls`,
-      [
-        "SNO",
-        "Patient",
-        "UMR",
-        "Triage",
-        "Pathway",
-        "ER",
-        "Physician",
-        "ER Checkin date/time",
-        "ER Disposition date/time",
-        "Encounter closed",
-        "Action",
-      ],
+      extendedColumns
+        ? [
+            "SNO",
+            "Patient",
+            "Gender",
+            "Age",
+            "UMR",
+            "Triage",
+            "Final disposition",
+            "Pathway",
+            "ER",
+            "Physician",
+            "ER Checkin date/time",
+            "ER Disposition date/time",
+            "Encounter closed",
+            "Action",
+          ]
+        : [
+            "SNO",
+            "Patient",
+            "UMR",
+            "Triage",
+            "Pathway",
+            "ER",
+            "Physician",
+            "ER Checkin date/time",
+            "ER Disposition date/time",
+            "Encounter closed",
+            "Action",
+          ],
       snapshotExportRows,
     );
   };
@@ -1799,9 +2023,9 @@ export function MetricDrillPanel({
                   />
                 </LineChart>
               </ChartContainer>
-            ) : (
-              <ResponsiveContainer width="100%" height={metric.id === "mews" ? 360 : 300}>
-                {metric.id === "avgLos" ? (
+          ) : (
+            <ResponsiveContainer width="100%" height={metric.id === "mews" ? 360 : 300}>
+              {metric.id === "avgLos" ? (
                 <BarChart data={series} margin={{ top: 20, right: 28, left: 8, bottom: 52 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="name" interval={0} angle={trendView === "week" ? -20 : -14} textAnchor="end" tick={axisTick} height={64} />
@@ -1823,6 +2047,32 @@ export function MetricDrillPanel({
               </ResponsiveContainer>
             )}
           </div>
+          {metric.id === "lamaRate" && v3ChartLayout ? (
+            <ChartCard
+              title="LAMA Analysis"
+              titleSuffix={graphTitleSuffix}
+              action={<Segmented value={lamaView} options={["reason", "pincode"]} onChange={setLamaView} />}
+              compact={false}
+            >
+              <ResponsiveContainer width="100%" height={245}>
+                <BarChart data={lamaRows} margin={{ top: 20, right: 24, left: 8, bottom: 48 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" tick={axisTick} height={60} />
+                  <YAxis tick={axisTick} label={axisLabel("Cases")} />
+                  <Tooltip cursor={false} contentStyle={tooltipStyle} />
+                  <Bar dataKey="value" radius={BAR_RADIUS}>
+                    {lamaRows.map((entry, index) => (
+                      <Cell key={`lama-drill-${String(entry.name)}-${index}`} fill={getSeriesColor(String(entry.name), index)} />
+                    ))}
+                    <LabelList dataKey="value" position="top" fill={COLORS.navy} fontSize={11} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="mt-2 flex justify-center">
+                <Legend items={lamaLegendItems} compact={false} orientation="horizontal" />
+              </div>
+            </ChartCard>
+          ) : null}
           {metric.id === "avgLos" && (
             <div className="rounded-[1.5rem] border border-border/80 bg-card p-4 shadow-soft">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -1977,8 +2227,11 @@ export function MetricDrillPanel({
                     <tr>
                       <th className="px-4 py-2 text-left">SNO</th>
                       <th className="px-4 py-2 text-left">Patient</th>
+                      {extendedColumns ? <th className="px-4 py-2 text-left">Gender</th> : null}
+                      {extendedColumns ? <th className="px-4 py-2 text-left">Age</th> : null}
                       <th className="px-4 py-2 text-left">UMR</th>
                       <th className="px-4 py-2 text-left">Triage</th>
+                      {extendedColumns ? <th className="px-4 py-2 text-left">Final disposition</th> : null}
                       <th className="px-4 py-2 text-left">Pathway</th>
                       <th className="px-4 py-2 text-left">ER</th>
                       <th className="px-4 py-2 text-left">Physician</th>
@@ -1997,8 +2250,11 @@ export function MetricDrillPanel({
                             {patient.name}
                           </Link>
                         </td>
+                        {extendedColumns ? <td className="px-4 py-2 text-muted-foreground">{patient.gender}</td> : null}
+                        {extendedColumns ? <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.age}</td> : null}
                         <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
                         <td className="px-4 py-2 text-muted-foreground">Level {patient.triage || "Pending"}</td>
+                        {extendedColumns ? <td className="px-4 py-2 text-muted-foreground">{patient.finalDisposition}</td> : null}
                         <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
                         <td className="px-4 py-2 text-muted-foreground">{patient.er}</td>
                         <td className="px-4 py-2 text-muted-foreground">{patient.physician}</td>
@@ -2036,6 +2292,7 @@ export function GraphPatientsPanel({
 }) {
   const [sortKey, setSortKey] = useState<GraphPatientSortKey>("sno");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const extendedColumns = advancedColumns;
   const rows = useMemo(() => {
     const baseRows = buildGraphPatientRows(patients);
     return advancedColumns ? sortGraphPatientRows(baseRows, sortKey, sortDirection) : baseRows;
@@ -2045,8 +2302,11 @@ export function GraphPatientsPanel({
       rows.map((row) => ({
         SNO: row.sno,
         Patient: row.patient,
+        Gender: row.gender,
+        Age: row.age,
         UMR: row.umr,
         Triage: row.triage,
+        "Final disposition": row.finalDisposition,
         Pathway: row.pathway,
         ER: row.er,
         Physician: row.physician,
@@ -2061,19 +2321,36 @@ export function GraphPatientsPanel({
   const exportTable = () => {
     downloadExcelTable(
       `${title.toLowerCase().replace(/\s+/g, "-")}-show-data.xls`,
-      [
-        "SNO",
-        "Patient",
-        "UMR",
-        "Triage",
-        "Pathway",
-        "ER",
-        "Physician",
-        "ER Checkin date/time",
-        "ER Disposition date/time",
-        "Encounter closed",
-        "Action",
-      ],
+      extendedColumns
+        ? [
+            "SNO",
+            "Patient",
+            "Gender",
+            "Age",
+            "UMR",
+            "Triage",
+            "Final disposition",
+            "Pathway",
+            "ER",
+            "Physician",
+            "ER Checkin date/time",
+            "ER Disposition date/time",
+            "Encounter closed",
+            "Action",
+          ]
+        : [
+            "SNO",
+            "Patient",
+            "UMR",
+            "Triage",
+            "Pathway",
+            "ER",
+            "Physician",
+            "ER Checkin date/time",
+            "ER Disposition date/time",
+            "Encounter closed",
+            "Action",
+          ],
       exportRows,
     );
   };
@@ -2145,8 +2422,11 @@ export function GraphPatientsPanel({
                     <tr>
                       <th className="px-4 py-2 text-left">SNO</th>
                       <th className="px-4 py-2 text-left">Patient</th>
+                      {extendedColumns ? <th className="px-4 py-2 text-left">Gender</th> : null}
+                      {extendedColumns ? <th className="px-4 py-2 text-left">Age</th> : null}
                       <th className="px-4 py-2 text-left">UMR</th>
                       <th className="px-4 py-2 text-left">Triage</th>
+                      {extendedColumns ? <th className="px-4 py-2 text-left">Final disposition</th> : null}
                       <th className="px-4 py-2 text-left">Pathway</th>
                       <th className="px-4 py-2 text-left">ER</th>
                       <th className="px-4 py-2 text-left">Physician</th>
@@ -2165,8 +2445,11 @@ export function GraphPatientsPanel({
                             {patient.patient}
                           </Link>
                         </td>
+                        {extendedColumns ? <td className="px-4 py-2 text-muted-foreground">{patient.gender}</td> : null}
+                        {extendedColumns ? <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.age}</td> : null}
                         <td className="px-4 py-2 tabular-nums text-muted-foreground">{patient.umr}</td>
                         <td className="px-4 py-2 text-muted-foreground">{patient.triage}</td>
+                        {extendedColumns ? <td className="px-4 py-2 text-muted-foreground">{patient.finalDisposition}</td> : null}
                         <td className="px-4 py-2 text-muted-foreground">{patient.pathway}</td>
                         <td className="px-4 py-2 text-muted-foreground">{patient.er}</td>
                         <td className="px-4 py-2 text-muted-foreground">{patient.physician}</td>
@@ -2242,8 +2525,11 @@ type GraphPatientRow = {
   patientId: string;
   sno: number;
   patient: string;
+  gender: string;
+  age: number;
   umr: string;
   triage: string;
+  finalDisposition: string;
   pathway: string;
   er: string;
   physician: string;
@@ -2270,6 +2556,7 @@ function buildGraphPatientRows(patients: typeof roster): GraphPatientRow[] {
   return patients.map((patient, index) => {
     const checkInTime = formatEncounterDateTime(patient.checkIn);
     const dispositionTime = patient.status === "discharged" ? deriveDispositionDateTime(patient.checkIn) : "Open";
+    const encounterClosedTime = patient.status === "discharged" ? deriveEncounterClosedDateTime(patient.checkIn) : "Open";
     const checkInSortValue = getEncounterTimestamp(patient.checkIn);
     const dispositionSortValue =
       patient.status === "discharged" && checkInSortValue !== null ? checkInSortValue + 4 * 60 * 60 * 1000 : Number.POSITIVE_INFINITY;
@@ -2278,14 +2565,17 @@ function buildGraphPatientRows(patients: typeof roster): GraphPatientRow[] {
       patientId: patient.id,
       sno: index + 1,
       patient: patient.name,
+      gender: patientGenderLabel(patient.sex),
+      age: patient.age,
       umr: patient.umr,
       triage: formatTriage(patient.triage),
+      finalDisposition: patientFinalDispositionLabel(patient.status),
       pathway: patient.pathway,
       er: patient.bed,
       physician: patient.physician,
       checkIn: checkInTime,
       disposition: dispositionTime,
-      encounterClosed: patient.status === "discharged" ? "Yes" : "No",
+      encounterClosed: encounterClosedTime,
       sortValues: {
         sno: index + 1,
         patient: patient.name.toLowerCase(),
@@ -2296,7 +2586,7 @@ function buildGraphPatientRows(patients: typeof roster): GraphPatientRow[] {
         physician: patient.physician.toLowerCase(),
         checkIn: checkInSortValue ?? patient.checkIn.toLowerCase(),
         disposition: dispositionSortValue,
-        encounterClosed: patient.status === "discharged" ? 1 : 0,
+        encounterClosed: patient.status === "discharged" && checkInSortValue !== null ? checkInSortValue + 4.5 * 60 * 60 * 1000 : Number.POSITIVE_INFINITY,
       },
     };
   });
@@ -2323,6 +2613,12 @@ function formatTriage(triage: (typeof roster)[number]["triage"]) {
   return triage === 0 ? "Pending" : `Level ${triage}`;
 }
 
+function patientFinalDispositionLabel(status: (typeof roster)[number]["status"]) {
+  if (status === "discharged") return "Discharged";
+  if (status === "obs") return "Observation";
+  return "ED Active";
+}
+
 function formatEncounterDateTime(value: string) {
   const parsed = parseEncounterDate(value);
   if (!parsed) {
@@ -2346,6 +2642,23 @@ function deriveDispositionDateTime(checkIn: string) {
 
   const closedAt = new Date(parsed);
   closedAt.setHours(closedAt.getHours() + 4);
+  return closedAt.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function deriveEncounterClosedDateTime(checkIn: string) {
+  const parsed = parseEncounterDate(checkIn);
+  if (!parsed) {
+    return "Open";
+  }
+
+  const closedAt = new Date(parsed);
+  closedAt.setHours(closedAt.getHours() + 4, closedAt.getMinutes() + 30, 0, 0);
   return closedAt.toLocaleString(undefined, {
     year: "numeric",
     month: "short",
@@ -2887,6 +3200,41 @@ function buildTrendMetricRows(metricId: string, days: string[], multiplier: numb
   return aggregateTrendRows(rawRows, view, ["Value"]);
 }
 
+function buildAiRecommendationDailyRows(days: string[], multiplier: number) {
+  return days.map(date => {
+    const total = scale(24 + seedRand(`ai-total-${date}`) * 18, multiplier);
+    const acceptanceRate = 0.58 + seedRand(`ai-accept-${date}`) * 0.24;
+    const accepted = Math.max(1, Math.round(total * acceptanceRate));
+    const overridden = Math.max(0, total - accepted);
+    return {
+      date,
+      accepted,
+      overridden,
+      total: accepted + overridden,
+      acceptanceRate: Number(((accepted / Math.max(accepted + overridden, 1)) * 100).toFixed(1)),
+    };
+  });
+}
+
+function buildAiRecommendationTrendRows(
+  rows: Array<{ date: string; accepted: number; overridden: number; total: number; acceptanceRate: number }>,
+  view: AiRecommendationTrendView,
+) {
+  const trendView = view === "date" ? "day" : view;
+  const aggregated = aggregateTrendRows(rows, trendView, ["accepted", "overridden"]);
+
+  return aggregated.map(row => {
+    const accepted = Number(row.accepted ?? 0);
+    const overridden = Number(row.overridden ?? 0);
+    const total = accepted + overridden;
+    return {
+      ...row,
+      total,
+      acceptanceRate: total ? Number(((accepted / total) * 100).toFixed(1)) : 0,
+    };
+  });
+}
+
 function buildDailyCases(days: string[], multiplier: number) {
   return days.slice(-21).map(date => ({ date, cases: scale(40 + seedRand(`cases-${date}`) * 36, multiplier) }));
 }
@@ -3348,3 +3696,16 @@ function axisLabel(value: string, position: "insideLeft" | "insideBottom" = "ins
 
 void TrendingUp;
 void Stethoscope;
+
+
+
+
+
+
+
+
+
+
+
+
+

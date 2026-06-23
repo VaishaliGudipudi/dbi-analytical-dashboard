@@ -40,6 +40,7 @@ function AnalyticsV3() {
   const analyticsBindings = useMemo(() => createAnalyticsCopilotBindings(patients), [patients]);
   const filteredPatients = useMemo(() => filterPatients(patients, activeFilter), [patients, activeFilter]);
   const filterRatio = activeFilter ? filterImpactMultiplier(filteredPatients.length, patients.length) : 1;
+  const graphTitleSuffix = `Total: ${filteredPatients.length}`;
 
   const applyFilter = (filter: DashboardFilter) => {
     setActiveFilter((current) => (isSameFilter(current, filter) ? null : filter));
@@ -103,6 +104,7 @@ function AnalyticsV3() {
           hideSuggested
           compact
           v3ChartLayout
+          graphTitleSuffix={graphTitleSuffix}
         />
       ) : null}
 
@@ -118,6 +120,7 @@ function AnalyticsV3() {
           hideSuggested
           compact
           v3ChartLayout
+          graphTitleSuffix={graphTitleSuffix}
         />
       ) : null}
 
@@ -133,6 +136,7 @@ function AnalyticsV3() {
           hideSuggested
           compact
           v3ChartLayout
+          graphTitleSuffix={graphTitleSuffix}
         />
       ) : null}
 
@@ -145,6 +149,7 @@ function AnalyticsV3() {
           activeFilter={activeFilter}
           onClose={() => setDrillMetric(null)}
           v3ChartLayout
+          graphTitleSuffix={graphTitleSuffix}
         />
       ) : null}
 
@@ -189,3 +194,6 @@ function filterImpactMultiplier(filteredCount: number, totalCount: number) {
   if (!totalCount) return 1;
   return Math.max(0.2, filteredCount / totalCount);
 }
+
+
+
