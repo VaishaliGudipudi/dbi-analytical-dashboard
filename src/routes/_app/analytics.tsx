@@ -72,7 +72,7 @@ type ProtocolView = "week" | "month" | "pathway";
 type ReferralView = "hour" | "weekday" | "month" | "reason";
 type LamaView = "reason" | "pincode";
 type ComplaintView = "hour" | "shift" | "day";
-type AiRecommendationTrendView = "date" | "week" | "month";
+type AiRecommendationTrendView = "day" | "month" | "quarter" | "year";
 
 export interface Metric {
   id: string;
@@ -861,7 +861,7 @@ export function Quality({
   graphTitleSuffix?: string;
 }) {
   const [referralView, setReferralView] = useState<ReferralView>("reason");
-  const [aiTrendView, setAiTrendView] = useState<AiRecommendationTrendView>("date");
+  const [aiTrendView, setAiTrendView] = useState<AiRecommendationTrendView>("day");
   const multiplier = filterRatio;
   const sectionPatients = filterPatients(patients, activeFilter);
   const outcome = ["mortality", "lamaRate", "lwbsRate", "readmit72", "returnRate"]
@@ -932,12 +932,12 @@ export function Quality({
             >
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Trend view</div>
-                <Segmented value={aiTrendView} options={["date", "week", "month"]} onChange={setAiTrendView} />
+                <Segmented value={aiTrendView} options={["day", "month", "quarter", "year"]} onChange={setAiTrendView} />
               </div>
               <ResponsiveContainer width="100%" height={compact ? 220 : 250}>
                 <LineChart data={aiRecommendationTrendRows} margin={{ top: 20, right: 24, left: 10, bottom: 50 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" interval={0} angle={aiTrendView === "date" ? -18 : -14} textAnchor="end" tick={axisTick} height={58} />
+                  <XAxis dataKey="name" interval={0} angle={aiTrendView === "day" ? -18 : -14} textAnchor="end" tick={axisTick} height={58} />
                   <YAxis
                     tick={axisTick}
                     domain={[0, 100]}
@@ -3383,8 +3383,7 @@ function buildAiRecommendationTrendRows(
   rows: Array<{ date: string; accepted: number; overridden: number; total: number; acceptanceRate: number }>,
   view: AiRecommendationTrendView,
 ) {
-  const trendView = view === "date" ? "day" : view;
-  const aggregated = aggregateTrendRows(rows, trendView, ["accepted", "overridden"]);
+  const aggregated = aggregateTrendRows(rows, view, ["accepted", "overridden"]);
 
   return aggregated.map(row => {
     const accepted = Number(row.accepted ?? 0);
