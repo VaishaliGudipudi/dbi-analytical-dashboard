@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -13,6 +13,11 @@ import { useCopilot } from "@/copilot/hooks/useCopilot";
 import { getEdSnapshot } from "@/lib/edApi";
 
 export const Route = createFileRoute("/_app")({
+  beforeLoad: ({ location }) => {
+    if (location.pathname !== "/analytics-v3") {
+      throw redirect({ to: "/analytics-v3", replace: true });
+    }
+  },
   loader: async () => getEdSnapshot(),
   component: AppShell,
 });
@@ -35,10 +40,7 @@ const adminNav = [
 ];
 
 const analyticsNav = [
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/analytics-v2", label: "Analytics Ver 2", icon: BarChart3 },
   { to: "/analytics-v3", label: "Analytics Ver 3", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 function AppShell() {
@@ -52,10 +54,6 @@ function AppShell() {
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!user) navigate({ to: "/" });
-  }, [user, navigate]);
-
-  useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     };
@@ -63,19 +61,8 @@ function AppShell() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="max-w-sm rounded-2xl border border-border bg-card px-6 py-8 text-center shadow-soft-lg">
-          <div className="text-lg font-semibold text-navy">Loading BioInsights</div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Restoring your session and dashboard layout.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  const nav = user.role === "analytics" ? analyticsNav : user.role === "admin" ? adminNav : clinicalNav;
+  if (!user) return null;
+  const nav = analyticsNav;
 
   return (
     <CopilotProvider>
@@ -86,21 +73,15 @@ function AppShell() {
             <img src={logo} alt="Discover BioInsights" className="h-10 w-10 object-contain" />
             <div className="min-w-0">
               <div className="text-sm font-semibold tracking-tight">Discover BioInsights</div>
-              <div className="hidden sm:block text-[11px] opacity-70 -mt-0.5">Emergency Analytics Platform</div>
+              <div className="hidden sm:block text-[11px] opacity-70 -mt-0.5">Performance Analytics Ver 3</div>
             </div>
           </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <CopilotHeaderButton />
-              {user.role === "analytics" ? (
-                <button onClick={() => setReportsOpen(true)}
-                  className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
-                  <FileText className="h-4 w-4" /> Reports
-                </button>
-              ) : null}
-            <button className="relative h-9 w-9 grid place-items-center rounded-lg hover:bg-orange/20 transition-colors">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-orange" />
-            </button>
+              <button onClick={() => setReportsOpen(true)}
+                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
+                <FileText className="h-4 w-4" /> Reports
+              </button>
             <div className="relative" ref={profileRef}>
               <button onClick={() => setProfileOpen(o => !o)} className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
                 <div className="h-7 w-7 rounded-full bg-coral grid place-items-center text-xs font-semibold">
@@ -188,10 +169,7 @@ function CopilotRouteBindings({
   const { setRouteBindings } = useCopilot();
 
   useEffect(() => {
-      const routeAliases =
-        role === "analytics"
-          ? ["/analytics", "/analytics-v2", "/analytics-v3", "/settings"]
-          : ["/dashboard", "/patients", "/register", "/settings", "/masters/medications", "/masters/lab-panels", "/rapid"];
+      const routeAliases = ["/analytics-v3"];
       setRouteBindings({
         currentRoute: currentPath,
         availableRoutes: routeAliases,
