@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type {
   Diagnosis,
@@ -54,7 +55,10 @@ type PersistedEdDatabase = {
 
 let inMemoryDatabase: PersistedEdDatabase | null = null;
 
-const DB_DIRECTORY = path.join(process.cwd(), "data");
+const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.CF_PAGES);
+const DB_DIRECTORY = isServerlessRuntime
+  ? path.join(os.tmpdir(), "bioinsights-dashboard", "data")
+  : path.join(process.cwd(), "data");
 const DB_FILE = path.join(DB_DIRECTORY, "ed-patient-db.json");
 
 const defaultOutcomeDraft = (): OutcomeDraft => ({
@@ -129,7 +133,7 @@ function cloneDatabase(database: PersistedEdDatabase): PersistedEdDatabase {
 function shouldFallbackToMemory(error: unknown) {
   if (!(error instanceof Error)) return false;
   const nodeError = error as Error & { code?: string };
-  return ["EPERM", "EROFS", "EACCES", "ENOSYS"].includes(nodeError.code ?? "");
+  return ["EPERM", "EROFS", "EACCES", "ENOSYS", "ENOENT"].includes(nodeError.code ?? "");
 }
 
 function getInMemoryDatabase() {
