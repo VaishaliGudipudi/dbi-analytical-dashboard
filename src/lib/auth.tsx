@@ -10,39 +10,24 @@ interface AuthCtx {
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
-const lockedUser: User = {
-  name: "Analytics Viewer",
-  email: "analytics@discoverbioinsights.com",
-  role: "analytics",
-};
-
-function normalizeAnalyticsUser(user: User | null) {
-  if (!user) return lockedUser;
-  return {
-    ...lockedUser,
-    ...user,
-    role: "analytics",
-  };
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User>(() => {
-    if (typeof window === "undefined") return lockedUser;
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === "undefined") return null;
     try {
       const raw = window.localStorage.getItem("dbi.user");
-      return normalizeAnalyticsUser(raw ? JSON.parse(raw) : null);
+      return raw ? JSON.parse(raw) : null;
     } catch {
-      return lockedUser;
+      return null;
     }
   });
   const login = (u: User) => {
-    const nextUser = normalizeAnalyticsUser(u);
-    window.localStorage.setItem("dbi.user", JSON.stringify(nextUser));
-    setUser(nextUser);
+    window.localStorage.setItem("dbi.user", JSON.stringify(u));
+    setUser(u);
   };
   const logout = () => {
-    window.localStorage.setItem("dbi.user", JSON.stringify(lockedUser));
-    setUser(lockedUser);
+    window.localStorage.removeItem("dbi.user");
+    setUser(null);
   };
   return <Ctx.Provider value={{ user, login, logout }}>{children}</Ctx.Provider>;
 }

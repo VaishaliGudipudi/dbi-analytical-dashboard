@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { Calendar, ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useCopilot } from "@/copilot/hooks/useCopilot";
@@ -73,7 +73,13 @@ function AnalyticsV3() {
           <div className="min-w-0">
             <h1 className="text-xl font-bold tracking-tight text-navy">Performance Analytics Ver 3</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
-              <span className="text-muted-foreground">Locked to the Ver 3 analytics experience</span>
+              <span className="text-muted-foreground">Version 1 layout with only existing metrics</span>
+              <Link to="/analytics" className="rounded-full border border-border/70 bg-white px-2.5 py-1 text-navy transition-colors hover:border-coral/40 hover:text-coral">
+                Back to Analytics
+              </Link>
+              <Link to="/analytics-v2" className="rounded-full border border-coral/30 bg-coral/10 px-2.5 py-1 text-coral transition-colors hover:bg-coral hover:text-white">
+                Open Analytics Ver 2
+              </Link>
             </div>
           </div>
         </div>
