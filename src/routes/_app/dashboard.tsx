@@ -31,7 +31,7 @@ function Dashboard() {
 
   useEffect(() => {
     if (user && user.role === "analytics") {
-      navigate({ to: "/analytics" });
+      navigate({ to: "/analytics-v3" });
     }
   }, [navigate, user]);
 

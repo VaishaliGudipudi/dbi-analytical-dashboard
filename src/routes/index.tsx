@@ -28,7 +28,7 @@ function Login() {
       role === "nurse" ? "Nurse Anita" :
       role === "admin" ? "Admin Patel" : "Analytics Rhea";
     login({ name, email, role });
-    navigate({ to: role === "analytics" ? "/analytics" : "/patients" });
+    navigate({ to: role === "analytics" ? "/analytics-v3" : "/patients" });
   };
 
   return (

@@ -35,8 +35,6 @@ const adminNav = [
 ];
 
 const analyticsNav = [
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/analytics-v2", label: "Analytics Ver 2", icon: BarChart3 },
   { to: "/analytics-v3", label: "Analytics Ver 3", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
@@ -190,7 +188,7 @@ function CopilotRouteBindings({
   useEffect(() => {
       const routeAliases =
         role === "analytics"
-          ? ["/analytics", "/analytics-v2", "/analytics-v3", "/settings"]
+          ? ["/analytics-v3", "/settings"]
           : ["/dashboard", "/patients", "/register", "/settings", "/masters/medications", "/masters/lab-panels", "/rapid"];
       setRouteBindings({
         currentRoute: currentPath,
